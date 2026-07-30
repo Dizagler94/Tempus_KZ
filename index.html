@@ -10,6 +10,18 @@
 <title>TEMPUS KZ — Наручные часы | Кокшетау</title>
 <link rel="icon" type="image/png" href="favicon.jpg">
 <link rel="stylesheet" href="style.css?v=2">
+<script>
+  // Регистрируем Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js?v=' + Date.now())
+      .then(function(reg) {
+        console.log('Service Worker зарегистрирован');
+      })
+      .catch(function(err) {
+        console.log('Ошибка регистрации SW:', err);
+      });
+  }
+</script>
 </head>
 <body class="authed">
 
