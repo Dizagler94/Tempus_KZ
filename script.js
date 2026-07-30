@@ -1,62 +1,170 @@
-// ========== СУПЕР-ОЧИСТКА КЕША ==========
+// ========== НАДЕЖНАЯ ОЧИСТКА КЕША (ОДИН РАЗ) ==========
 (function() {
-  console.log('🚀 Запуск супер-очистки кеша...');
+  console.log('🚀 Проверка состояния кеша...');
   
-  // 1. Очищаем localStorage (сохраняем важное)
+  // Ключи для хранения состояния
+  const CACHE_CLEANED_KEY = 'mdt_cache_cleaned_v3';
+  const APP_VERSION = '2.2.0';
+  const VERSION_KEY = 'mdt_app_version';
+  
+  // Проверяем, была ли уже выполнена очистка в этой сессии
+  if (sessionStorage.getItem(CACHE_CLEANED_KEY) === 'true') {
+    console.log('✅ Кеш уже очищен в этой сессии');
+    // Проверяем версию, даже если кеш очищен
+    const savedVersion = localStorage.getItem(VERSION_KEY);
+    if (savedVersion !== APP_VERSION) {
+      console.log('🔄 Обнаружена новая версия, обновляем...');
+      localStorage.setItem(VERSION_KEY, APP_VERSION);
+      // Не перезагружаем, просто обновляем данные
+    }
+    return;
+  }
+  
+  let needsReload = false;
+  let cleaned = false;
+  
+  // ===== 1. ОЧИСТКА LOCALSTORAGE =====
   try {
+    // Сохраняем важные данные
     const favs = localStorage.getItem('mdt_favorites_v1');
     const github = localStorage.getItem('mdt_github_settings');
+    const version = localStorage.getItem(VERSION_KEY);
     
+    // Очищаем всё
     localStorage.clear();
     
+    // Восстанавливаем важные данные
     if (favs) localStorage.setItem('mdt_favorites_v1', favs);
     if (github) localStorage.setItem('mdt_github_settings', github);
+    if (version) localStorage.setItem(VERSION_KEY, version);
+    else localStorage.setItem(VERSION_KEY, APP_VERSION);
     
-    console.log('✅ localStorage очищен');
-  } catch(e) {}
+    console.log('✅ localStorage очищен и восстановлен');
+    cleaned = true;
+  } catch(e) {
+    console.warn('⚠️ Ошибка очистки localStorage:', e);
+  }
   
-  // 2. Очищаем sessionStorage
+  // ===== 2. ОЧИСТКА SESSIONSTORAGE =====
   try {
+    // Сохраняем только флаг очистки, если он есть
+    const cleanedFlag = sessionStorage.getItem(CACHE_CLEANED_KEY);
     sessionStorage.clear();
+    if (cleanedFlag) sessionStorage.setItem(CACHE_CLEANED_KEY, cleanedFlag);
     console.log('✅ sessionStorage очищен');
-  } catch(e) {}
-  
-  // 3. Очищаем все кеши браузера
-  if ('caches' in window) {
-    caches.keys().then(function(names) {
-      for (let name of names) {
-        caches.delete(name).then(function() {
-          console.log('✅ Кеш удален:', name);
-        });
-      }
-    });
+    cleaned = true;
+  } catch(e) {
+    console.warn('⚠️ Ошибка очистки sessionStorage:', e);
   }
   
-  // 4. Отключаем Service Workers
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-      for (let registration of registrations) {
-        registration.unregister().then(function() {
-          console.log('✅ Service Worker отключен');
-        });
-      }
-    });
+  // ===== 3. ОЧИСТКА CACHE API =====
+  if ('caches' in window && window.caches) {
+    try {
+      caches.keys().then(function(names) {
+        if (names.length > 0) {
+          console.log('🗑️ Найдено кешей:', names.length);
+          for (let name of names) {
+            caches.delete(name).then(function(deleted) {
+              if (deleted) {
+                console.log('✅ Кеш удален:', name);
+                cleaned = true;
+              }
+            });
+          }
+        } else {
+          console.log('✅ Кешей не найдено');
+        }
+      }).catch(function(err) {
+        console.warn('⚠️ Ошибка при очистке кешей:', err);
+      });
+    } catch(e) {
+      console.warn('⚠️ Ошибка доступа к Cache API:', e);
+    }
   }
   
-  // 5. Добавляем параметр к URL для обхода кеша
-  if (window.location.search.indexOf('nocache=') === -1) {
-    const params = new URLSearchParams(window.location.search);
-    params.set('nocache', Date.now());
-    const newUrl = window.location.pathname + '?' + params.toString();
-    console.log('🔄 Обновляем URL с параметром:', newUrl);
+  // ===== 4. ОТКЛЮЧЕНИЕ SERVICE WORKERS =====
+  if ('serviceWorker' in navigator && navigator.serviceWorker) {
+    try {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        if (registrations.length > 0) {
+          console.log('🗑️ Найдено Service Workers:', registrations.length);
+          for (let registration of registrations) {
+            registration.unregister().then(function(success) {
+              if (success) {
+                console.log('✅ Service Worker отключен');
+                cleaned = true;
+                needsReload = true;
+              }
+            });
+          }
+        } else {
+          console.log('✅ Service Workers не найдено');
+        }
+      }).catch(function(err) {
+        console.warn('⚠️ Ошибка при отключении SW:', err);
+      });
+    } catch(e) {
+      console.warn('⚠️ Ошибка доступа к Service Worker:', e);
+    }
+  }
+  
+  // ===== 5. ОЧИСТКА COOKIES (опционально) =====
+  try {
+    document.cookie.split(";").forEach(function(c) {
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+    });
+    console.log('✅ Cookies очищены');
+    cleaned = true;
+  } catch(e) {
+    // Игнорируем ошибки с cookies
+  }
+  
+  // ===== 6. ОЧИСТКА ИСТОРИИ (опционально) =====
+  if (window.history && window.history.replaceState) {
+    try {
+      // Добавляем параметр к URL для обхода кеша
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has('_t')) {
+        url.searchParams.set('_t', Date.now().toString());
+        window.history.replaceState({}, '', url.toString());
+        console.log('✅ URL обновлен с параметром времени');
+        cleaned = true;
+      }
+    } catch(e) {
+      console.warn('⚠️ Ошибка обновления URL:', e);
+    }
+  }
+  
+  // ===== 7. ОТМЕЧАЕМ, ЧТО ОЧИСТКА ВЫПОЛНЕНА =====
+  sessionStorage.setItem(CACHE_CLEANED_KEY, 'true');
+  
+  // ===== 8. ПЕРЕЗАГРУЗКА (ТОЛЬКО ЕСЛИ НУЖНО) =====
+  if (cleaned && needsReload && !sessionStorage.getItem('mdt_reloaded')) {
+    console.log('🔄 Выполняем перезагрузку для применения изменений...');
+    sessionStorage.setItem('mdt_reloaded', 'true');
     
-    // Перезагружаем с новым параметром
-    window.location.replace(newUrl);
-    return; // Останавливаем выполнение, так как страница перезагрузится
+    // Даем время на очистку кешей
+    setTimeout(function() {
+      // Используем жесткую перезагрузку
+      window.location.reload(true);
+    }, 1000);
+  } else if (cleaned) {
+    console.log('✅ Очистка кеша выполнена без перезагрузки');
+  } else {
+    console.log('✅ Очистка не требовалась');
   }
   
-  console.log('✅ Кеш полностью очищен!');
+  // Удаляем флаг перезагрузки через 5 секунд
+  setTimeout(function() {
+    sessionStorage.removeItem('mdt_reloaded');
+    console.log('🔓 Флаг перезагрузки сброшен');
+  }, 5000);
+  
+  console.log('✅ Инициализация кеша завершена');
 })();
+
+// ========== ОСТАЛЬНОЙ ВАШ КОД ==========
+
 const AUTH = { user: "anastasia_zy_zy", pass: "anastasia_zy_zy" };
 const LS_KEY = "mdt_watches_v2";
 const FAV_KEY = "mdt_favorites_v1";
@@ -114,50 +222,36 @@ function toggleFav(article) {
   }
   saveFavorites();
   
-  // Обновляем только кнопки избранного, без полной перерисовки
-  updateFavButtons(article);
-  
-  // Если открыта модалка избранного — обновляем и её
-  const favModal = document.getElementById("favModal");
-  if (favModal && favModal.classList.contains("open")) {
-    openFavModal();
-  }
-}
-
-// Обновляет только кнопки избранного для конкретного артикула (без перерисовки всей страницы)
-function updateFavButtons(article) {
-  const favActive = isFav(article);
-  
-  // Экранируем артикул для использования в селекторе
+  // ТОЧЕЧНОЕ ОБНОВЛЕНИЕ БЕЗ ПЕРЕРИСОВКИ
   const escapedArticle = article.replace(/"/g, '\\"');
   
-  // Обновляем кнопку в карточке
-  const cardBtn = document.querySelector(`[data-fav="${escapedArticle}"]`);
-  if (cardBtn) {
-    if (favActive) {
-      cardBtn.classList.add('active');
-      cardBtn.innerHTML = '❤️';
-      cardBtn.title = 'Убрать из избранного';
-    } else {
-      cardBtn.classList.remove('active');
-      cardBtn.innerHTML = '🤍';
-      cardBtn.title = 'В избранное';
-    }
+  // Обновляем кнопку
+  const btn = document.querySelector(`[data-fav="${escapedArticle}"]`);
+  if (btn) {
+    const isActive = isFav(article);
+    btn.classList.toggle('active', isActive);
+    btn.textContent = isActive ? '❤️' : '🤍';
+    btn.title = isActive ? 'Убрать из избранного' : 'В избранное';
     
-    // Запускаем анимацию
-    cardBtn.style.animation = 'none';
-    cardBtn.offsetHeight; // форсируем reflow
-    cardBtn.style.animation = 'favClick 0.4s ease';
+    // Легкая анимация через CSS класс
+    btn.classList.remove('animating');
+    void btn.offsetWidth; // принудительный reflow для перезапуска анимации
+    btn.classList.add('animating');
   }
   
   // Обновляем рамку карточки
   const card = document.querySelector(`[data-article="${escapedArticle}"]`);
   if (card) {
-    if (favActive) {
-      card.classList.add('fav-active');
-    } else {
-      card.classList.remove('fav-active');
-    }
+    card.classList.toggle('fav-active', isFav(article));
+  }
+  
+  // Обновляем счетчик
+  updateFavCount();
+  
+  // Если открыта модалка избранного — обновляем её
+  const favModal = document.getElementById("favModal");
+  if (favModal && favModal.classList.contains("open")) {
+    openFavModal();
   }
 }
 
@@ -618,8 +712,10 @@ function initCardEvents() {
   document.querySelectorAll(".fav-btn").forEach(btn => {
     btn.onclick = function(e) {
       e.stopPropagation();
+      e.preventDefault();
       const article = this.getAttribute("data-fav");
       toggleFav(article);
+      return false;
     };
   });
   
@@ -1086,35 +1182,6 @@ function bindEvents() {
   }
 }
 
-// ========== ПРИНУДИТЕЛЬНАЯ ОЧИСТКА КЕША НА МОБИЛЬНЫХ ==========
-(function() {
-  const APP_VERSION = '2.0.0';
-  const VERSION_KEY = 'mdt_app_version';
-  
-  if (canUseStorage) {
-    const savedVersion = window.localStorage.getItem(VERSION_KEY);
-    
-    if (savedVersion !== APP_VERSION) {
-      console.log('🔄 Обнаружена новая версия. Очистка кеша...');
-      
-      const favs = window.localStorage.getItem(FAV_KEY);
-      const github = window.localStorage.getItem(GITHUB_KEY);
-      
-      window.localStorage.clear();
-      
-      if (favs) window.localStorage.setItem(FAV_KEY, favs);
-      if (github) window.localStorage.setItem(GITHUB_KEY, github);
-      
-      window.localStorage.setItem(VERSION_KEY, APP_VERSION);
-      
-      if (!window.sessionStorage.getItem('reloaded_v2')) {
-        window.sessionStorage.setItem('reloaded_v2', '1');
-        window.location.reload(true);
-      }
-    }
-  }
-})();
-
 // ========== ЗАПУСК ==========
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', function() {
@@ -1125,3 +1192,8 @@ if (document.readyState === 'loading') {
   bindEvents();
   initApp();
 }
+
+console.log('✅ Приложение успешно загружено!');
+console.log('📦 Версия:', '2.2.0');
+console.log('💾 Хранилище:', canUseStorage ? 'доступно' : 'недоступно');
+console.log('❤️ Избранное:', favorites.length, 'моделей');
