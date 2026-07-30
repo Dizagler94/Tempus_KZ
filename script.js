@@ -227,7 +227,7 @@ async function updateGithub() {
 
 // ========== ФОРМАТИРОВАНИЕ ==========
 function fmtPrice(n) { 
-  return Number(n).toLocaleString("ru-RU") + " "; 
+  return Number(n).toLocaleString("ru-RU") + " ₸"; 
 }
 
 function stockInfo(qty) {
