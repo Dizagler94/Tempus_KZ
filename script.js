@@ -464,11 +464,11 @@ function render() {
       : '';
     
     html += `
-      <article class="card${favActive ? ' fav-active' : ''}" data-idx="${i}">
+      <article class="card${favActive ? ' fav-active' : ''}" data-article="${escapeHtml(article)}">
         <button class="fav-btn${favActive ? ' active' : ''}" data-fav="${escapeHtml(article)}" title="В избранное">${favActive ? '❤️' : '🤍'}</button>
         <div class="card-actions">
-          <button class="icon-btn edit" data-edit="${i}" title="Редактировать">✎</button>
-          <button class="icon-btn del" data-del="${i}" title="Удалить">✕</button>
+          <button class="icon-btn edit" data-edit-article="${escapeHtml(article)}" title="Редактировать">✎</button>
+          <button class="icon-btn del" data-del-article="${escapeHtml(article)}" title="Удалить">✕</button>
         </div>
         <div class="slider ${multi ? 'has-multi' : ''}" data-slider="${i}">
           <div class="slides">${sliderContent}</div>
@@ -500,9 +500,9 @@ function initCardEvents() {
         return;
       }
       
-      const idx = parseInt(this.getAttribute("data-idx"));
-      const watches = getFilteredWatches();
-      const w = watches[idx];
+      const article = this.getAttribute("data-article");
+      const allWatches = loadWatches();
+      const w = allWatches.find(w => w.article === article);
       if (w && w.images && w.images.length > 0) {
         openLightbox(w.images, w.article, fmtPrice(w.price), 0);
       }
@@ -517,22 +517,28 @@ function initCardEvents() {
     };
   });
   
-  document.querySelectorAll("[data-edit]").forEach(btn => {
+  document.querySelectorAll("[data-edit-article]").forEach(btn => {
     btn.onclick = function(e) {
       e.stopPropagation();
-      openEdit(parseInt(this.getAttribute("data-edit")));
+      const article = this.getAttribute("data-edit-article");
+      const allWatches = loadWatches();
+      const idx = allWatches.findIndex(w => w.article === article);
+      if (idx >= 0) openEdit(idx);
     };
   });
   
-  document.querySelectorAll("[data-del]").forEach(btn => {
+  document.querySelectorAll("[data-del-article]").forEach(btn => {
     btn.onclick = function(e) {
       e.stopPropagation();
-      const idx = parseInt(this.getAttribute("data-del"));
+      const article = this.getAttribute("data-del-article");
       if (confirm("Удалить эту модель?")) {
         const list = loadWatches();
-        list.splice(idx, 1);
-        saveWatches(list);
-        render();
+        const idx = list.findIndex(w => w.article === article);
+        if (idx >= 0) {
+          list.splice(idx, 1);
+          saveWatches(list);
+          render();
+        }
       }
     };
   });
@@ -744,10 +750,8 @@ function renderEditNewThumbs() {
 
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
 function initApp() {
-  // ВСЕГДА выходим из аккаунта при загрузке
   isAuthed = false;
   
-  // Чистим возможные флаги авторизации
   if (canUseStorage) {
     try {
       window.localStorage.removeItem('mdt_authed');
@@ -763,7 +767,6 @@ function initApp() {
 
 // ========== НАВЕШИВАЕМ ВСЕ ОБРАБОТЧИКИ ==========
 function bindEvents() {
-  // Лайтбокс
   const lightboxClose = document.getElementById("lightboxClose");
   const lightboxPrevBtn = document.getElementById("lightboxPrev");
   const lightboxNextBtn = document.getElementById("lightboxNext");
@@ -774,7 +777,6 @@ function bindEvents() {
   if (lightboxNextBtn) lightboxNextBtn.onclick = function(e) { e.stopPropagation(); lightboxNext(); };
   if (lightbox) lightbox.onclick = function(e) { if (e.target === this) closeLightbox(); };
   
-  // Копирование избранного
   const copyFavBtn = document.getElementById("copyFavBtn");
   if (copyFavBtn) copyFavBtn.onclick = function() {
     const text = document.getElementById("favCopyArea").textContent;
@@ -790,7 +792,6 @@ function bindEvents() {
     }
   };
   
-  // Закрытие модалок
   const closeFav = document.getElementById("closeFav");
   const closeLogin = document.getElementById("closeLogin");
   const closeAdd = document.getElementById("closeAdd");
@@ -803,7 +804,6 @@ function bindEvents() {
   if (closeEdit) closeEdit.onclick = function() { closeModal("editModal"); };
   if (closeGithub) closeGithub.onclick = function() { closeModal("githubModal"); };
   
-  // Логин
   const doLogin = document.getElementById("doLogin");
   if (doLogin) doLogin.onclick = function() {
     const u = document.getElementById("loginUser").value.trim();
@@ -824,7 +824,6 @@ function bindEvents() {
     }
   };
   
-  // Добавление фото
   const fImgFile = document.getElementById("fImgFile");
   if (fImgFile) fImgFile.onchange = async function() {
     const files = Array.from(this.files || []);
@@ -834,7 +833,6 @@ function bindEvents() {
     this.value = "";
   };
   
-  // Добавление модели
   const doAdd = document.getElementById("doAdd");
   if (doAdd) doAdd.onclick = function() {
     const err = document.getElementById("addErr");
@@ -861,7 +859,6 @@ function bindEvents() {
     render();
   };
   
-  // Редактирование фото
   const eImgFile = document.getElementById("eImgFile");
   if (eImgFile) eImgFile.onchange = async function() {
     const files = Array.from(this.files || []);
@@ -871,7 +868,6 @@ function bindEvents() {
     this.value = "";
   };
   
-  // Сохранение редактирования
   const doEdit = document.getElementById("doEdit");
   if (doEdit) doEdit.onclick = function() {
     const err = document.getElementById("editErr");
@@ -901,11 +897,9 @@ function bindEvents() {
     render();
   };
   
-  // Сохранение в файл
   const saveBtn = document.getElementById("saveBtn");
   if (saveBtn) saveBtn.onclick = saveToFile;
   
-  // GitHub
   const githubBtn = document.getElementById("githubBtn");
   if (githubBtn) githubBtn.onclick = updateGithub;
   
@@ -928,7 +922,6 @@ function bindEvents() {
     alert("✅ Настройки GitHub сохранены!");
   };
   
-  // Категории
   const categoryMenu = document.getElementById("categoryMenu");
   if (categoryMenu) categoryMenu.onclick = function(e) {
     const btn = e.target.closest(".cat-btn");
@@ -940,7 +933,6 @@ function bindEvents() {
     render();
   };
   
-  // Фильтры
   const applyFilter = document.getElementById("applyFilter");
   if (applyFilter) applyFilter.onclick = function() {
     const min = document.getElementById("priceMin").value;
@@ -959,7 +951,6 @@ function bindEvents() {
     render();
   };
   
-  // Заполняем настройки GitHub если есть
   const ghSettings = getGithubSettings();
   if (ghSettings) {
     const ghUsername = document.getElementById("ghUsername");
@@ -975,14 +966,12 @@ function bindEvents() {
 }
 
 // ========== ЗАПУСК ==========
-// Ждём загрузки DOM
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', function() {
     bindEvents();
     initApp();
   });
 } else {
-  // DOM уже загружен
   bindEvents();
   initApp();
 }
