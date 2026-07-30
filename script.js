@@ -1,73 +1,37 @@
-// ========== ОЧИСТКА КЕША БЕЗ ПЕРЕЗАГРУЗКИ ==========
+// ========== МИНИМАЛЬНАЯ ОЧИСТКА КЕША (БЕЗ ПЕРЕЗАГРУЗКИ) ==========
 (function() {
-  console.log('🚀 Очистка кеша без перезагрузки...');
-  
-  // Проверяем, была ли уже очистка
-  if (sessionStorage.getItem('mdt_cleaned') === 'true') {
-    console.log('✅ Кеш уже очищен');
+  // ПРОВЕРЯЕМ ТОЛЬКО ОДИН РАЗ
+  if (localStorage.getItem('mdt_cache_cleared') === 'true') {
     return;
   }
   
-  // 1. Очищаем localStorage (сохраняем важное)
+  console.log('🧹 Очистка кеша...');
+  
+  // Очищаем только то, что точно нужно
   try {
+    // Сохраняем избранное
     const favs = localStorage.getItem('mdt_favorites_v1');
     const github = localStorage.getItem('mdt_github_settings');
     
+    // Очищаем всё
     localStorage.clear();
     
+    // Восстанавливаем важное
     if (favs) localStorage.setItem('mdt_favorites_v1', favs);
     if (github) localStorage.setItem('mdt_github_settings', github);
     
-    console.log('✅ localStorage очищен');
+    // Отмечаем, что очистка выполнена
+    localStorage.setItem('mdt_cache_cleared', 'true');
+    
+    console.log('✅ Кеш очищен');
   } catch(e) {
-    console.warn('⚠️ Ошибка очистки localStorage:', e);
+    console.warn('Ошибка:', e);
   }
   
-  // 2. Очищаем sessionStorage
-  try {
-    sessionStorage.clear();
-    console.log('✅ sessionStorage очищен');
-  } catch(e) {
-    console.warn('⚠️ Ошибка очистки sessionStorage:', e);
-  }
-  
-  // 3. Очищаем Cache API
-  if ('caches' in window && window.caches) {
-    try {
-      caches.keys().then(function(names) {
-        for (let name of names) {
-          caches.delete(name);
-          console.log('✅ Кеш удален:', name);
-        }
-      }).catch(function(err) {
-        console.warn('⚠️ Ошибка при очистке кешей:', err);
-      });
-    } catch(e) {
-      console.warn('⚠️ Ошибка доступа к Cache API:', e);
-    }
-  }
-  
-  // 4. Отключаем Service Workers
-  if ('serviceWorker' in navigator && navigator.serviceWorker) {
-    try {
-      navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for (let registration of registrations) {
-          registration.unregister();
-          console.log('✅ Service Worker отключен');
-        }
-      }).catch(function(err) {
-        console.warn('⚠️ Ошибка при отключении SW:', err);
-      });
-    } catch(e) {
-      console.warn('⚠️ Ошибка доступа к Service Worker:', e);
-    }
-  }
-  
-  // 5. Отмечаем, что очистка выполнена
-  sessionStorage.setItem('mdt_cleaned', 'true');
-  
-  console.log('✅ Очистка кеша завершена (без перезагрузки)');
+  // НИКАКИХ ПЕРЕЗАГРУЗОК!
 })();
+
+// ========== ВЕСЬ ОСТАЛЬНОЙ КОД ==========
 
 // ========== ОСТАЛЬНОЙ ВАШ КОД ==========
 
