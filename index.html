@@ -1,197 +1,190 @@
 <!DOCTYPE html>
 <html lang="ru">
-
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0a0a0c">
-  <title>TEMPUS KZ — Наручные часы | Кокшетау</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a0c">
+<title>TEMPUS KZ — Наручные часы | Кокшетау</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="stylesheet" href="style.css">
 </head>
-
 <body>
 
-  <script id="catalog-data" type="application/json">[]</script>
+<script id="catalog-data" type="application/json">[]</script>
 
-  <header>
-    <div class="nav">
-      <div class="logo">TEMPUS KZ<small>Наручные часы | Кокшетау</small></div>
-      <div class="nav-actions" id="authArea">
-        <button class="btn btn-fav" id="favBtn">❤️ Избранное<span class="fav-count" id="favCount">0</span></button>
-        <button class="btn" id="loginBtn">Войти</button>
+<header>
+  <div class="nav">
+    <div class="logo">
+      <img src="logo.png" alt="TEMPUS KZ" class="logo-icon">
+      <div class="logo-text">
+        TEMPUS KZ
+        <small>Наручные часы | Кокшетау</small>
       </div>
     </div>
-  </header>
-
-  <section class="hero">
-    <h1>Коллекция времени</h1>
-    <div class="divider"></div>
-    <p>Изысканные наручные часы — от швейцарской классики до современных шедевров.</p>
-  </section>
-
-  <div class="category-menu" id="categoryMenu">
-    <button class="cat-btn active" data-cat="all">Все модели</button>
-    <button class="cat-btn" data-cat="men">Мужские часы</button>
-    <button class="cat-btn" data-cat="women">Женские часы</button>
-  </div>
-
-  <div class="filter-bar">
-    <div class="filter-group">
-      <label>Цена от:</label>
-      <input type="number" id="priceMin" placeholder="0" min="0">
-    </div>
-    <div class="filter-group">
-      <label>до:</label>
-      <input type="number" id="priceMax" placeholder="10000000" min="0">
-    </div>
-    <button class="apply-btn" id="applyFilter">Применить</button>
-    <button class="reset-btn" id="resetFilter">Сбросить</button>
-  </div>
-
-  <div class="results-info" id="resultsInfo"></div>
-
-  <div class="save-banner" id="saveBanner">
-    <div class="inner">
-      <span>⚠️ Изменения пока <b>только в браузере</b>. Нажмите кнопку, чтобы сохранить.</span>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn btn-gold" id="saveBtn">💾 Скачать</button>
-        <button class="btn btn-gold" id="githubBtn">🚀 На GitHub</button>
-      </div>
+    <div class="nav-actions" id="authArea">
+      <button class="btn btn-fav" id="favBtn">❤️ Избранное<span class="fav-count" id="favCount">0</span></button>
+      <button class="btn" id="loginBtn">Войти</button>
     </div>
   </div>
+</header>
 
-  <main class="grid" id="grid"></main>
+<section class="hero">
+  <h1>Коллекция времени</h1>
+  <div class="divider"></div>
+  <p>Изысканные наручные часы — от швейцарской классики до современных шедевров.</p>
+</section>
 
-  <footer>© 2026 TEMPUS KZ · Оффлайн-каталог</footer>
+<div class="category-menu" id="categoryMenu">
+  <button class="cat-btn active" data-cat="all">Все модели</button>
+  <button class="cat-btn" data-cat="men">Мужские часы</button>
+  <button class="cat-btn" data-cat="women">Женские часы</button>
+</div>
 
-  <!-- Лайтбокс -->
-  <div class="lightbox" id="lightbox">
-    <button class="lightbox-close" id="lightboxClose">×</button>
-    <button class="lightbox-arrow prev" id="lightboxPrev">‹</button>
-    <button class="lightbox-arrow next" id="lightboxNext">›</button>
-    <div class="lightbox-content">
-      <img id="lightboxImg" src="" alt="">
-    </div>
-    <div class="lightbox-dots" id="lightboxDots"></div>
-    <div class="lightbox-info" id="lightboxInfo">
-      <div class="article" id="lightboxArticle"></div>
-      <div class="price" id="lightboxPrice"></div>
+<div class="filter-bar">
+  <div class="filter-group">
+    <label>Цена от:</label>
+    <input type="number" id="priceMin" placeholder="0" min="0">
+  </div>
+  <div class="filter-group">
+    <label>до:</label>
+    <input type="number" id="priceMax" placeholder="10000000" min="0">
+  </div>
+  <button class="apply-btn" id="applyFilter">Применить</button>
+  <button class="reset-btn" id="resetFilter">Сбросить</button>
+</div>
+
+<div class="results-info" id="resultsInfo"></div>
+
+<div class="save-banner" id="saveBanner">
+  <div class="inner">
+    <span>⚠️ Изменения пока <b>только в браузере</b>. Нажмите кнопку, чтобы сохранить.</span>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-gold" id="saveBtn">💾 Скачать</button>
+      <button class="btn btn-gold" id="githubBtn">🚀 На GitHub</button>
     </div>
   </div>
+</div>
 
-  <!-- Модалки -->
-  <div class="modal" id="loginModal">
-    <div class="modal-box">
-      <h2>Авторизация</h2>
-      <div class="sub">Доступ для управления каталогом</div>
-      <div class="field"><label>Логин</label><input type="text" id="loginUser"></div>
-      <div class="field"><label>Пароль</label><input type="password" id="loginPass"></div>
-      <div class="err" id="loginErr"></div>
-      <div class="actions">
-        <button class="btn" id="closeLogin">Отмена</button>
-        <button class="btn btn-gold" id="doLogin">Войти</button>
-      </div>
+<main class="grid" id="grid"></main>
+
+<footer>© 2026 TEMPUS KZ · Оффлайн-каталог</footer>
+
+<!-- Лайтбокс -->
+<div class="lightbox" id="lightbox">
+  <button class="lightbox-close" id="lightboxClose">×</button>
+  <button class="lightbox-arrow prev" id="lightboxPrev">‹</button>
+  <button class="lightbox-arrow next" id="lightboxNext">›</button>
+  <div class="lightbox-content">
+    <img id="lightboxImg" src="" alt="">
+  </div>
+  <div class="lightbox-dots" id="lightboxDots"></div>
+  <div class="lightbox-info" id="lightboxInfo">
+    <div class="article" id="lightboxArticle"></div>
+    <div class="price" id="lightboxPrice"></div>
+  </div>
+</div>
+
+<!-- Модалки -->
+<div class="modal" id="loginModal">
+  <div class="modal-box">
+    <h2>Авторизация</h2>
+    <div class="sub">Доступ для управления каталогом</div>
+    <div class="field"><label>Логин</label><input type="text" id="loginUser"></div>
+    <div class="field"><label>Пароль</label><input type="password" id="loginPass"></div>
+    <div class="err" id="loginErr"></div>
+    <div class="actions">
+      <button class="btn" id="closeLogin">Отмена</button>
+      <button class="btn btn-gold" id="doLogin">Войти</button>
     </div>
   </div>
+</div>
 
-  <div class="modal" id="addModal">
-    <div class="modal-box">
-      <h2>Новая модель</h2>
-      <div class="sub">Добавьте часы в коллекцию</div>
-      <div class="field"><label>Категория</label>
-        <select id="fCategory">
-          <option value="men">Мужские часы</option>
-          <option value="women">Женские часы</option>
-        </select>
+<div class="modal" id="addModal">
+  <div class="modal-box">
+    <h2>Новая модель</h2>
+    <div class="sub">Добавьте часы в коллекцию</div>
+    <div class="field"><label>Категория</label>
+      <select id="fCategory"><option value="men">Мужские часы</option><option value="women">Женские часы</option></select>
+    </div>
+    <div class="field"><label>Артикул</label><input type="text" id="fArticle" placeholder="TK-2026-001"></div>
+    <div class="field"><label>Описание</label><textarea id="fDesc" placeholder="Описание часов..."></textarea></div>
+    <div class="row">
+      <div class="field"><label>Цена ()</label><input type="number" id="fPrice" min="0" placeholder="850000"></div>
+      <div class="field"><label>Количество</label><input type="number" id="fQty" min="0" placeholder="3"></div>
+    </div>
+    <div class="field"><label>Фото часов (можно несколько)</label>
+      <div class="file-input">
+        <input type="file" id="fImgFile" accept="image/*" multiple>
+        <div class="file-input-text"><b>Нажмите для загрузки</b> фото<br><small>JPG, PNG, WEBP</small></div>
       </div>
-      <div class="field"><label>Артикул</label><input type="text" id="fArticle" placeholder="TK-2026-001"></div>
-      <div class="field"><label>Описание</label><textarea id="fDesc" placeholder="Описание часов..."></textarea></div>
-      <div class="row">
-        <div class="field"><label>Цена ()</label><input type="number" id="fPrice" min="0" placeholder="850000"></div>
-        <div class="field"><label>Количество</label><input type="number" id="fQty" min="0" placeholder="3"></div>
-      </div>
-      <div class="field"><label>Фото часов (можно несколько)</label>
-        <div class="file-input">
-          <input type="file" id="fImgFile" accept="image/*" multiple>
-          <div class="file-input-text"><b>Нажмите для загрузки</b> фото<br><small>JPG, PNG, WEBP</small></div>
-        </div>
-        <div class="thumbs-gallery" id="addThumbs"></div>
-      </div>
-      <div class="err" id="addErr"></div>
-      <div class="actions">
-        <button class="btn" id="closeAdd">Отмена</button>
-        <button class="btn btn-gold" id="doAdd">Добавить</button>
-      </div>
+      <div class="thumbs-gallery" id="addThumbs"></div>
+    </div>
+    <div class="err" id="addErr"></div>
+    <div class="actions">
+      <button class="btn" id="closeAdd">Отмена</button>
+      <button class="btn btn-gold" id="doAdd">Добавить</button>
     </div>
   </div>
+</div>
 
-  <div class="modal" id="editModal">
-    <div class="modal-box">
-      <h2>Редактировать модель</h2>
-      <div class="sub">Измените данные и фото</div>
-      <div class="field"><label>Категория</label>
-        <select id="eCategory">
-          <option value="men">Мужские часы</option>
-          <option value="women">Женские часы</option>
-        </select>
+<div class="modal" id="editModal">
+  <div class="modal-box">
+    <h2>Редактировать модель</h2>
+    <div class="sub">Измените данные и фото</div>
+    <div class="field"><label>Категория</label>
+      <select id="eCategory"><option value="men">Мужские часы</option><option value="women">Женские часы</option></select>
+    </div>
+    <div class="field"><label>Артикул</label><input type="text" id="eArticle"></div>
+    <div class="field"><label>Описание</label><textarea id="eDesc"></textarea></div>
+    <div class="row">
+      <div class="field"><label>Цена ()</label><input type="number" id="ePrice" min="0"></div>
+      <div class="field"><label>Количество</label><input type="number" id="eQty" min="0"></div>
+    </div>
+    <div class="field"><label>Текущие фото</label><div class="thumbs-gallery" id="editThumbs"></div></div>
+    <div class="field"><label>Добавить ещё фото</label>
+      <div class="file-input">
+        <input type="file" id="eImgFile" accept="image/*" multiple>
+        <div class="file-input-text"><b>Выберите фото</b></div>
       </div>
-      <div class="field"><label>Артикул</label><input type="text" id="eArticle"></div>
-      <div class="field"><label>Описание</label><textarea id="eDesc"></textarea></div>
-      <div class="row">
-        <div class="field"><label>Цена ()</label><input type="number" id="ePrice" min="0"></div>
-        <div class="field"><label>Количество</label><input type="number" id="eQty" min="0"></div>
-      </div>
-      <div class="field"><label>Текущие фото</label>
-        <div class="thumbs-gallery" id="editThumbs"></div>
-      </div>
-      <div class="field"><label>Добавить ещё фото</label>
-        <div class="file-input">
-          <input type="file" id="eImgFile" accept="image/*" multiple>
-          <div class="file-input-text"><b>Выберите фото</b></div>
-        </div>
-        <div class="thumbs-gallery" id="editNewThumbs"></div>
-      </div>
-      <div class="err" id="editErr"></div>
-      <div class="actions">
-        <button class="btn" id="closeEdit">Отмена</button>
-        <button class="btn btn-gold" id="doEdit">Сохранить</button>
-      </div>
+      <div class="thumbs-gallery" id="editNewThumbs"></div>
+    </div>
+    <div class="err" id="editErr"></div>
+    <div class="actions">
+      <button class="btn" id="closeEdit">Отмена</button>
+      <button class="btn btn-gold" id="doEdit">Сохранить</button>
     </div>
   </div>
+</div>
 
-  <div class="modal" id="githubModal">
-    <div class="modal-box">
-      <h2>Настройки GitHub</h2>
-      <div class="sub">Заполните для автообновления сайта</div>
-      <div class="field"><label>Имя пользователя GitHub</label><input type="text" id="ghUsername"
-          placeholder="anastasia-zy"></div>
-      <div class="field"><label>Название репозитория</label><input type="text" id="ghRepo" placeholder="tempus-kz">
-      </div>
-      <div class="field"><label>Personal Access Token</label><input type="password" id="ghToken"
-          placeholder="ghp_xxxxxxxxxxxx"></div>
-      <div class="field"><label>Ветка</label><input type="text" id="ghBranch" placeholder="main" value="main"></div>
-      <div class="err" id="githubErr"></div>
-      <div class="actions">
-        <button class="btn" id="closeGithub">Отмена</button>
-        <button class="btn btn-gold" id="saveGithub">Сохранить настройки</button>
-      </div>
+<div class="modal" id="githubModal">
+  <div class="modal-box">
+    <h2>Настройки GitHub</h2>
+    <div class="sub">Заполните для автообновления сайта</div>
+    <div class="field"><label>Имя пользователя GitHub</label><input type="text" id="ghUsername" placeholder="anastasia-zy"></div>
+    <div class="field"><label>Название репозитория</label><input type="text" id="ghRepo" placeholder="tempus-kz"></div>
+    <div class="field"><label>Personal Access Token</label><input type="password" id="ghToken" placeholder="ghp_xxxxxxxxxxxx"></div>
+    <div class="field"><label>Ветка</label><input type="text" id="ghBranch" placeholder="main" value="main"></div>
+    <div class="err" id="githubErr"></div>
+    <div class="actions">
+      <button class="btn" id="closeGithub">Отмена</button>
+      <button class="btn btn-gold" id="saveGithub">Сохранить настройки</button>
     </div>
   </div>
+</div>
 
-  <div class="modal" id="favModal">
-    <div class="modal-box">
-      <h2>❤️ Избранное</h2>
-      <div class="sub">Ваши выбранные модели</div>
-      <div class="fav-list" id="favList"></div>
-      <div class="copy-area" id="favCopyArea" style="display:none;"></div>
-      <div class="actions">
-        <button class="btn" id="copyFavBtn" style="display:none;">📋 Скопировать артикулы</button>
-        <button class="btn" id="closeFav">Закрыть</button>
-      </div>
+<div class="modal" id="favModal">
+  <div class="modal-box">
+    <h2>❤️ Избранное</h2>
+    <div class="sub">Ваши выбранные модели</div>
+    <div class="fav-list" id="favList"></div>
+    <div class="copy-area" id="favCopyArea" style="display:none;"></div>
+    <div class="actions">
+      <button class="btn" id="copyFavBtn" style="display:none;">📋 Скопировать артикулы</button>
+      <button class="btn" id="closeFav">Закрыть</button>
     </div>
   </div>
+</div>
 
-  <script src="script.js"></script>
+<script src="script.js"></script>
 </body>
-
 </html>
