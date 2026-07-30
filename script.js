@@ -1,78 +1,43 @@
-// ========== НАДЕЖНАЯ ОЧИСТКА КЕША (ОДИН РАЗ) ==========
+// ========== ОЧИСТКА КЕША БЕЗ ПЕРЕЗАГРУЗКИ ==========
 (function() {
-  console.log('🚀 Проверка состояния кеша...');
+  console.log('🚀 Очистка кеша без перезагрузки...');
   
-  // Ключи для хранения состояния
-  const CACHE_CLEANED_KEY = 'mdt_cache_cleaned_v3';
-  const APP_VERSION = '2.2.0';
-  const VERSION_KEY = 'mdt_app_version';
-  
-  // Проверяем, была ли уже выполнена очистка в этой сессии
-  if (sessionStorage.getItem(CACHE_CLEANED_KEY) === 'true') {
-    console.log('✅ Кеш уже очищен в этой сессии');
-    // Проверяем версию, даже если кеш очищен
-    const savedVersion = localStorage.getItem(VERSION_KEY);
-    if (savedVersion !== APP_VERSION) {
-      console.log('🔄 Обнаружена новая версия, обновляем...');
-      localStorage.setItem(VERSION_KEY, APP_VERSION);
-      // Не перезагружаем, просто обновляем данные
-    }
+  // Проверяем, была ли уже очистка
+  if (sessionStorage.getItem('mdt_cleaned') === 'true') {
+    console.log('✅ Кеш уже очищен');
     return;
   }
   
-  let needsReload = false;
-  let cleaned = false;
-  
-  // ===== 1. ОЧИСТКА LOCALSTORAGE =====
+  // 1. Очищаем localStorage (сохраняем важное)
   try {
-    // Сохраняем важные данные
     const favs = localStorage.getItem('mdt_favorites_v1');
     const github = localStorage.getItem('mdt_github_settings');
-    const version = localStorage.getItem(VERSION_KEY);
     
-    // Очищаем всё
     localStorage.clear();
     
-    // Восстанавливаем важные данные
     if (favs) localStorage.setItem('mdt_favorites_v1', favs);
     if (github) localStorage.setItem('mdt_github_settings', github);
-    if (version) localStorage.setItem(VERSION_KEY, version);
-    else localStorage.setItem(VERSION_KEY, APP_VERSION);
     
-    console.log('✅ localStorage очищен и восстановлен');
-    cleaned = true;
+    console.log('✅ localStorage очищен');
   } catch(e) {
     console.warn('⚠️ Ошибка очистки localStorage:', e);
   }
   
-  // ===== 2. ОЧИСТКА SESSIONSTORAGE =====
+  // 2. Очищаем sessionStorage
   try {
-    // Сохраняем только флаг очистки, если он есть
-    const cleanedFlag = sessionStorage.getItem(CACHE_CLEANED_KEY);
     sessionStorage.clear();
-    if (cleanedFlag) sessionStorage.setItem(CACHE_CLEANED_KEY, cleanedFlag);
     console.log('✅ sessionStorage очищен');
-    cleaned = true;
   } catch(e) {
     console.warn('⚠️ Ошибка очистки sessionStorage:', e);
   }
   
-  // ===== 3. ОЧИСТКА CACHE API =====
+  // 3. Очищаем Cache API
   if ('caches' in window && window.caches) {
     try {
       caches.keys().then(function(names) {
-        if (names.length > 0) {
-          console.log('🗑️ Найдено кешей:', names.length);
-          for (let name of names) {
-            caches.delete(name).then(function(deleted) {
-              if (deleted) {
-                console.log('✅ Кеш удален:', name);
-                cleaned = true;
-              }
-            });
-          }
-        } else {
-          console.log('✅ Кешей не найдено');
+        for (let name of names) {
+          caches.delete(name);
+          console.log('✅ Кеш удален:', name);
         }
       }).catch(function(err) {
         console.warn('⚠️ Ошибка при очистке кешей:', err);
@@ -82,23 +47,13 @@
     }
   }
   
-  // ===== 4. ОТКЛЮЧЕНИЕ SERVICE WORKERS =====
+  // 4. Отключаем Service Workers
   if ('serviceWorker' in navigator && navigator.serviceWorker) {
     try {
       navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        if (registrations.length > 0) {
-          console.log('🗑️ Найдено Service Workers:', registrations.length);
-          for (let registration of registrations) {
-            registration.unregister().then(function(success) {
-              if (success) {
-                console.log('✅ Service Worker отключен');
-                cleaned = true;
-                needsReload = true;
-              }
-            });
-          }
-        } else {
-          console.log('✅ Service Workers не найдено');
+        for (let registration of registrations) {
+          registration.unregister();
+          console.log('✅ Service Worker отключен');
         }
       }).catch(function(err) {
         console.warn('⚠️ Ошибка при отключении SW:', err);
@@ -108,59 +63,10 @@
     }
   }
   
-  // ===== 5. ОЧИСТКА COOKIES (опционально) =====
-  try {
-    document.cookie.split(";").forEach(function(c) {
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-    });
-    console.log('✅ Cookies очищены');
-    cleaned = true;
-  } catch(e) {
-    // Игнорируем ошибки с cookies
-  }
+  // 5. Отмечаем, что очистка выполнена
+  sessionStorage.setItem('mdt_cleaned', 'true');
   
-  // ===== 6. ОЧИСТКА ИСТОРИИ (опционально) =====
-  if (window.history && window.history.replaceState) {
-    try {
-      // Добавляем параметр к URL для обхода кеша
-      const url = new URL(window.location.href);
-      if (!url.searchParams.has('_t')) {
-        url.searchParams.set('_t', Date.now().toString());
-        window.history.replaceState({}, '', url.toString());
-        console.log('✅ URL обновлен с параметром времени');
-        cleaned = true;
-      }
-    } catch(e) {
-      console.warn('⚠️ Ошибка обновления URL:', e);
-    }
-  }
-  
-  // ===== 7. ОТМЕЧАЕМ, ЧТО ОЧИСТКА ВЫПОЛНЕНА =====
-  sessionStorage.setItem(CACHE_CLEANED_KEY, 'true');
-  
-  // ===== 8. ПЕРЕЗАГРУЗКА (ТОЛЬКО ЕСЛИ НУЖНО) =====
-  if (cleaned && needsReload && !sessionStorage.getItem('mdt_reloaded')) {
-    console.log('🔄 Выполняем перезагрузку для применения изменений...');
-    sessionStorage.setItem('mdt_reloaded', 'true');
-    
-    // Даем время на очистку кешей
-    setTimeout(function() {
-      // Используем жесткую перезагрузку
-      window.location.reload(true);
-    }, 1000);
-  } else if (cleaned) {
-    console.log('✅ Очистка кеша выполнена без перезагрузки');
-  } else {
-    console.log('✅ Очистка не требовалась');
-  }
-  
-  // Удаляем флаг перезагрузки через 5 секунд
-  setTimeout(function() {
-    sessionStorage.removeItem('mdt_reloaded');
-    console.log('🔓 Флаг перезагрузки сброшен');
-  }, 5000);
-  
-  console.log('✅ Инициализация кеша завершена');
+  console.log('✅ Очистка кеша завершена (без перезагрузки)');
 })();
 
 // ========== ОСТАЛЬНОЙ ВАШ КОД ==========
