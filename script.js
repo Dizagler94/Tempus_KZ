@@ -1,3 +1,62 @@
+// ========== СУПЕР-ОЧИСТКА КЕША ==========
+(function() {
+  console.log('🚀 Запуск супер-очистки кеша...');
+  
+  // 1. Очищаем localStorage (сохраняем важное)
+  try {
+    const favs = localStorage.getItem('mdt_favorites_v1');
+    const github = localStorage.getItem('mdt_github_settings');
+    
+    localStorage.clear();
+    
+    if (favs) localStorage.setItem('mdt_favorites_v1', favs);
+    if (github) localStorage.setItem('mdt_github_settings', github);
+    
+    console.log('✅ localStorage очищен');
+  } catch(e) {}
+  
+  // 2. Очищаем sessionStorage
+  try {
+    sessionStorage.clear();
+    console.log('✅ sessionStorage очищен');
+  } catch(e) {}
+  
+  // 3. Очищаем все кеши браузера
+  if ('caches' in window) {
+    caches.keys().then(function(names) {
+      for (let name of names) {
+        caches.delete(name).then(function() {
+          console.log('✅ Кеш удален:', name);
+        });
+      }
+    });
+  }
+  
+  // 4. Отключаем Service Workers
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      for (let registration of registrations) {
+        registration.unregister().then(function() {
+          console.log('✅ Service Worker отключен');
+        });
+      }
+    });
+  }
+  
+  // 5. Добавляем параметр к URL для обхода кеша
+  if (window.location.search.indexOf('nocache=') === -1) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('nocache', Date.now());
+    const newUrl = window.location.pathname + '?' + params.toString();
+    console.log('🔄 Обновляем URL с параметром:', newUrl);
+    
+    // Перезагружаем с новым параметром
+    window.location.replace(newUrl);
+    return; // Останавливаем выполнение, так как страница перезагрузится
+  }
+  
+  console.log('✅ Кеш полностью очищен!');
+})();
 const AUTH = { user: "anastasia_zy_zy", pass: "anastasia_zy_zy" };
 const LS_KEY = "mdt_watches_v2";
 const FAV_KEY = "mdt_favorites_v1";
