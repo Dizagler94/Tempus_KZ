@@ -965,6 +965,42 @@ function bindEvents() {
   }
 }
 
+// ========== ПРИНУДИТЕЛЬНАЯ ОЧИСТКА КЕША НА МОБИЛЬНЫХ ==========
+(function() {
+  // Проверяем, не закеширована ли старая версия
+  const APP_VERSION = '2.0.0';
+  const VERSION_KEY = 'mdt_app_version';
+  
+  if (canUseStorage) {
+    const savedVersion = window.localStorage.getItem(VERSION_KEY);
+    
+    if (savedVersion !== APP_VERSION) {
+      // Новая версия или первый запуск — чистим всё
+      console.log('🔄 Обнаружена новая версия. Очистка кеша...');
+      
+      // Очищаем localStorage кроме избранного и настроек GitHub
+      const favs = window.localStorage.getItem(FAV_KEY);
+      const github = window.localStorage.getItem(GITHUB_KEY);
+      
+      window.localStorage.clear();
+      
+      // Восстанавливаем избранное и настройки GitHub
+      if (favs) window.localStorage.setItem(FAV_KEY, favs);
+      if (github) window.localStorage.setItem(GITHUB_KEY, github);
+      
+      // Сохраняем новую версию
+      window.localStorage.setItem(VERSION_KEY, APP_VERSION);
+      
+      // Принудительно перезагружаем страницу (один раз)
+      if (!window.sessionStorage.getItem('reloaded_v2')) {
+        window.sessionStorage.setItem('reloaded_v2', '1');
+        window.location.reload(true);
+      }
+    }
+  }
+})();
+
+
 // ========== ЗАПУСК ==========
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', function() {
