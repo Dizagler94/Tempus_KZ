@@ -48,10 +48,58 @@ function isFav(article) {
 
 function toggleFav(article) {
   const idx = favorites.indexOf(article);
-  if (idx >= 0) favorites.splice(idx, 1);
-  else favorites.push(article);
+  if (idx >= 0) {
+    favorites.splice(idx, 1);
+  } else {
+    favorites.push(article);
+  }
   saveFavorites();
-  render();
+  
+  // Обновляем только кнопки избранного, без полной перерисовки
+  updateFavButtons(article);
+  
+  // Если открыта модалка избранного — обновляем и её
+  const favModal = document.getElementById("favModal");
+  if (favModal && favModal.classList.contains("open")) {
+    openFavModal();
+  }
+}
+
+// Обновляет только кнопки избранного для конкретного артикула (без перерисовки всей страницы)
+function updateFavButtons(article) {
+  const favActive = isFav(article);
+  
+  // Экранируем артикул для использования в селекторе
+  const escapedArticle = article.replace(/"/g, '\\"');
+  
+  // Обновляем кнопку в карточке
+  const cardBtn = document.querySelector(`[data-fav="${escapedArticle}"]`);
+  if (cardBtn) {
+    if (favActive) {
+      cardBtn.classList.add('active');
+      cardBtn.innerHTML = '❤️';
+      cardBtn.title = 'Убрать из избранного';
+    } else {
+      cardBtn.classList.remove('active');
+      cardBtn.innerHTML = '🤍';
+      cardBtn.title = 'В избранное';
+    }
+    
+    // Запускаем анимацию
+    cardBtn.style.animation = 'none';
+    cardBtn.offsetHeight; // форсируем reflow
+    cardBtn.style.animation = 'favClick 0.4s ease';
+  }
+  
+  // Обновляем рамку карточки
+  const card = document.querySelector(`[data-article="${escapedArticle}"]`);
+  if (card) {
+    if (favActive) {
+      card.classList.add('fav-active');
+    } else {
+      card.classList.remove('fav-active');
+    }
+  }
 }
 
 // ========== ДАННЫЕ КАТАЛОГА ==========
@@ -379,7 +427,6 @@ function openFavModal() {
     btn.onclick = function() {
       const art = this.getAttribute("data-article");
       toggleFav(art);
-      openFavModal();
     };
   });
   
@@ -750,8 +797,10 @@ function renderEditNewThumbs() {
 
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
 function initApp() {
+  // Всегда выходим из аккаунта при загрузке
   isAuthed = false;
   
+  // Чистим возможные флаги авторизации
   if (canUseStorage) {
     try {
       window.localStorage.removeItem('mdt_authed');
@@ -767,6 +816,7 @@ function initApp() {
 
 // ========== НАВЕШИВАЕМ ВСЕ ОБРАБОТЧИКИ ==========
 function bindEvents() {
+  // Лайтбокс
   const lightboxClose = document.getElementById("lightboxClose");
   const lightboxPrevBtn = document.getElementById("lightboxPrev");
   const lightboxNextBtn = document.getElementById("lightboxNext");
@@ -777,6 +827,7 @@ function bindEvents() {
   if (lightboxNextBtn) lightboxNextBtn.onclick = function(e) { e.stopPropagation(); lightboxNext(); };
   if (lightbox) lightbox.onclick = function(e) { if (e.target === this) closeLightbox(); };
   
+  // Копирование избранного
   const copyFavBtn = document.getElementById("copyFavBtn");
   if (copyFavBtn) copyFavBtn.onclick = function() {
     const text = document.getElementById("favCopyArea").textContent;
@@ -792,6 +843,7 @@ function bindEvents() {
     }
   };
   
+  // Закрытие модалок
   const closeFav = document.getElementById("closeFav");
   const closeLogin = document.getElementById("closeLogin");
   const closeAdd = document.getElementById("closeAdd");
@@ -804,6 +856,7 @@ function bindEvents() {
   if (closeEdit) closeEdit.onclick = function() { closeModal("editModal"); };
   if (closeGithub) closeGithub.onclick = function() { closeModal("githubModal"); };
   
+  // Логин
   const doLogin = document.getElementById("doLogin");
   if (doLogin) doLogin.onclick = function() {
     const u = document.getElementById("loginUser").value.trim();
@@ -824,6 +877,7 @@ function bindEvents() {
     }
   };
   
+  // Добавление фото
   const fImgFile = document.getElementById("fImgFile");
   if (fImgFile) fImgFile.onchange = async function() {
     const files = Array.from(this.files || []);
@@ -833,6 +887,7 @@ function bindEvents() {
     this.value = "";
   };
   
+  // Добавление модели
   const doAdd = document.getElementById("doAdd");
   if (doAdd) doAdd.onclick = function() {
     const err = document.getElementById("addErr");
@@ -859,6 +914,7 @@ function bindEvents() {
     render();
   };
   
+  // Редактирование фото
   const eImgFile = document.getElementById("eImgFile");
   if (eImgFile) eImgFile.onchange = async function() {
     const files = Array.from(this.files || []);
@@ -868,6 +924,7 @@ function bindEvents() {
     this.value = "";
   };
   
+  // Сохранение редактирования
   const doEdit = document.getElementById("doEdit");
   if (doEdit) doEdit.onclick = function() {
     const err = document.getElementById("editErr");
@@ -897,9 +954,11 @@ function bindEvents() {
     render();
   };
   
+  // Сохранение в файл
   const saveBtn = document.getElementById("saveBtn");
   if (saveBtn) saveBtn.onclick = saveToFile;
   
+  // GitHub
   const githubBtn = document.getElementById("githubBtn");
   if (githubBtn) githubBtn.onclick = updateGithub;
   
@@ -922,6 +981,7 @@ function bindEvents() {
     alert("✅ Настройки GitHub сохранены!");
   };
   
+  // Категории
   const categoryMenu = document.getElementById("categoryMenu");
   if (categoryMenu) categoryMenu.onclick = function(e) {
     const btn = e.target.closest(".cat-btn");
@@ -933,6 +993,7 @@ function bindEvents() {
     render();
   };
   
+  // Фильтры
   const applyFilter = document.getElementById("applyFilter");
   if (applyFilter) applyFilter.onclick = function() {
     const min = document.getElementById("priceMin").value;
@@ -951,6 +1012,7 @@ function bindEvents() {
     render();
   };
   
+  // Заполняем настройки GitHub если есть
   const ghSettings = getGithubSettings();
   if (ghSettings) {
     const ghUsername = document.getElementById("ghUsername");
@@ -967,7 +1029,6 @@ function bindEvents() {
 
 // ========== ПРИНУДИТЕЛЬНАЯ ОЧИСТКА КЕША НА МОБИЛЬНЫХ ==========
 (function() {
-  // Проверяем, не закеширована ли старая версия
   const APP_VERSION = '2.0.0';
   const VERSION_KEY = 'mdt_app_version';
   
@@ -975,23 +1036,18 @@ function bindEvents() {
     const savedVersion = window.localStorage.getItem(VERSION_KEY);
     
     if (savedVersion !== APP_VERSION) {
-      // Новая версия или первый запуск — чистим всё
       console.log('🔄 Обнаружена новая версия. Очистка кеша...');
       
-      // Очищаем localStorage кроме избранного и настроек GitHub
       const favs = window.localStorage.getItem(FAV_KEY);
       const github = window.localStorage.getItem(GITHUB_KEY);
       
       window.localStorage.clear();
       
-      // Восстанавливаем избранное и настройки GitHub
       if (favs) window.localStorage.setItem(FAV_KEY, favs);
       if (github) window.localStorage.setItem(GITHUB_KEY, github);
       
-      // Сохраняем новую версию
       window.localStorage.setItem(VERSION_KEY, APP_VERSION);
       
-      // Принудительно перезагружаем страницу (один раз)
       if (!window.sessionStorage.getItem('reloaded_v2')) {
         window.sessionStorage.setItem('reloaded_v2', '1');
         window.location.reload(true);
@@ -999,7 +1055,6 @@ function bindEvents() {
     }
   }
 })();
-
 
 // ========== ЗАПУСК ==========
 if (document.readyState === 'loading') {
