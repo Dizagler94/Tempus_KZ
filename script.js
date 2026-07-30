@@ -19,6 +19,7 @@ let priceFilterMin = null;
 let priceFilterMax = null;
 let favorites = [];
 
+// ========== ИЗБРАННОЕ ==========
 function loadFavorites() {
   if (!canUseStorage) return [];
   try {
@@ -35,7 +36,6 @@ function saveFavorites() {
 }
 
 function updateFavCount() {
-  // Обновляем все счётчики на странице
   const counters = document.querySelectorAll('[id^="favCount"]');
   counters.forEach(el => {
     el.textContent = favorites.length;
@@ -54,6 +54,7 @@ function toggleFav(article) {
   render();
 }
 
+// ========== ДАННЫЕ КАТАЛОГА ==========
 function migrateData(list) {
   return list.map(w => {
     if (!w.images) { w.images = w.img ? [w.img] : []; delete w.img; }
@@ -91,10 +92,13 @@ function saveWatches(list) {
 
 function updateSaveBanner() {
   const banner = document.getElementById("saveBanner");
-  if (hasUnsavedChanges && isAuthed) banner.classList.add("show");
-  else banner.classList.remove("show");
+  if (banner) {
+    if (hasUnsavedChanges && isAuthed) banner.classList.add("show");
+    else banner.classList.remove("show");
+  }
 }
 
+// ========== ИЗОБРАЖЕНИЯ ==========
 function compressImage(file, maxWidth = 800, quality = 0.8) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -118,10 +122,13 @@ function compressImage(file, maxWidth = 800, quality = 0.8) {
 
 async function compressFiles(files) {
   const result = [];
-  for (const f of files) { try { result.push(await compressImage(f)); } catch (e) {} }
+  for (const f of files) { 
+    try { result.push(await compressImage(f)); } catch (e) {} 
+  }
   return result;
 }
 
+// ========== СОХРАНЕНИЕ ==========
 function saveToFile() {
   try {
     const watches = loadWatches();
@@ -138,14 +145,21 @@ function saveToFile() {
     a.href = url; a.download = "index.html";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    hasUnsavedChanges = false; updateSaveBanner();
+    hasUnsavedChanges = false; 
+    updateSaveBanner();
     alert("✅ Файл скачан!");
-  } catch (e) { alert("Ошибка: " + e.message); }
+  } catch (e) { 
+    alert("Ошибка: " + e.message); 
+  }
 }
 
+// ========== GITHUB ==========
 function getGithubSettings() {
   if (!canUseStorage) return null;
-  try { const s = window.localStorage.getItem(GITHUB_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; }
+  try { 
+    const s = window.localStorage.getItem(GITHUB_KEY); 
+    return s ? JSON.parse(s) : null; 
+  } catch (e) { return null; }
 }
 
 function saveGithubSettings(settings) {
@@ -155,7 +169,10 @@ function saveGithubSettings(settings) {
 
 async function updateGithub() {
   const settings = getGithubSettings();
-  if (!settings) { openModal("githubModal"); return; }
+  if (!settings) { 
+    openModal("githubModal"); 
+    return; 
+  }
   const err = document.getElementById("githubErr");
   err.textContent = " Отправка на GitHub...";
   try {
@@ -173,17 +190,30 @@ async function updateGithub() {
       headers: { 'Authorization': `token ${settings.token}`, 'Accept': 'application/vnd.github.v3+json' }
     });
     let sha = null;
-    if (getFileResponse.ok) { const fileData = await getFileResponse.json(); sha = fileData.sha; }
+    if (getFileResponse.ok) { 
+      const fileData = await getFileResponse.json(); 
+      sha = fileData.sha; 
+    }
     const putUrl = `https://api.github.com/repos/${settings.username}/${settings.repo}/contents/index.html`;
-    const body = { message: "Update catalog - " + new Date().toISOString(), content: content, branch: settings.branch };
+    const body = { 
+      message: "Update catalog - " + new Date().toISOString(), 
+      content: content, 
+      branch: settings.branch 
+    };
     if (sha) body.sha = sha;
     const putResponse = await fetch(putUrl, {
       method: 'PUT',
-      headers: { 'Authorization': `token ${settings.token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+      headers: { 
+        'Authorization': `token ${settings.token}`, 
+        'Accept': 'application/vnd.github.v3+json', 
+        'Content-Type': 'application/json' 
+      },
       body: JSON.stringify(body)
     });
     if (putResponse.ok) {
-      err.textContent = ""; hasUnsavedChanges = false; updateSaveBanner();
+      err.textContent = ""; 
+      hasUnsavedChanges = false; 
+      updateSaveBanner();
       alert("✅ Файл обновлён на GitHub!\nСайт обновится через 1-2 минуты.\nhttps://" + settings.username + ".github.io/" + settings.repo + "/");
     } else {
       const errorData = await putResponse.json();
@@ -195,7 +225,10 @@ async function updateGithub() {
   }
 }
 
-function fmtPrice(n) { return Number(n).toLocaleString("ru-RU") + " "; }
+// ========== ФОРМАТИРОВАНИЕ ==========
+function fmtPrice(n) { 
+  return Number(n).toLocaleString("ru-RU") + " "; 
+}
 
 function stockInfo(qty) {
   const q = Number(qty);
@@ -218,7 +251,9 @@ function placeholderSVG() {
 
 function escapeHtml(s) {
   if (!s) return "";
-  return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  return String(s).replace(/[&<>"']/g, c => ({ 
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" 
+  }[c]));
 }
 
 function getFilteredWatches() {
@@ -266,10 +301,10 @@ function renderLightbox() {
     document.getElementById("lightboxPrev").style.display = "flex";
     document.getElementById("lightboxNext").style.display = "flex";
     dots.querySelectorAll(".lightbox-dot").forEach(d => {
-      d.addEventListener("click", function() {
+      d.onclick = function() {
         lightboxIdx = parseInt(this.getAttribute("data-k"));
         renderLightbox();
-      });
+      };
     });
   } else {
     dots.style.display = "none";
@@ -289,10 +324,17 @@ function lightboxNext() {
 }
 
 // ========== МОДАЛКИ ==========
-function openModal(id) { document.getElementById(id).classList.add("open"); }
-function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+function openModal(id) { 
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.add("open"); 
+}
 
-// ========== ИЗБРАННОЕ ==========
+function closeModal(id) { 
+  const modal = document.getElementById(id);
+  if (modal) modal.classList.remove("open"); 
+}
+
+// ========== ИЗБРАННОЕ МОДАЛКА ==========
 function openFavModal() {
   const list = document.getElementById("favList");
   const copyArea = document.getElementById("favCopyArea");
@@ -334,11 +376,11 @@ function openFavModal() {
   copyBtn.style.display = "inline-block";
   
   list.querySelectorAll(".fav-remove").forEach(btn => {
-    btn.addEventListener("click", function() {
+    btn.onclick = function() {
       const art = this.getAttribute("data-article");
       toggleFav(art);
       openFavModal();
-    });
+    };
   });
   
   openModal("favModal");
@@ -354,13 +396,17 @@ function fallbackCopy(text) {
   try { document.execCommand("copy"); } catch (e) {}
   document.body.removeChild(ta);
   const btn = document.getElementById("copyFavBtn");
-  btn.textContent = "✅ Скопировано!";
-  setTimeout(() => { btn.textContent = "📋 Скопировать артикулы"; }, 2000);
+  if (btn) {
+    btn.textContent = "✅ Скопировано!";
+    setTimeout(() => { btn.textContent = "📋 Скопировать артикулы"; }, 2000);
+  }
 }
 
-// ========== РЕНДЕР КАРТОЧЕК ==========
+// ========== РЕНДЕР ==========
 function render() {
   const grid = document.getElementById("grid");
+  if (!grid) return;
+  
   const watches = getFilteredWatches();
   const allWatches = loadWatches();
   
@@ -371,10 +417,12 @@ function render() {
   }
   
   const resultsInfo = document.getElementById("resultsInfo");
-  if (currentCategory !== "all" || priceFilterMin !== null || priceFilterMax !== null) {
-    resultsInfo.innerHTML = `Найдено: <b>${watches.length}</b> из <b>${allWatches.length}</b> моделей`;
-  } else {
-    resultsInfo.innerHTML = "";
+  if (resultsInfo) {
+    if (currentCategory !== "all" || priceFilterMin !== null || priceFilterMax !== null) {
+      resultsInfo.innerHTML = `Найдено: <b>${watches.length}</b> из <b>${allWatches.length}</b> моделей`;
+    } else {
+      resultsInfo.innerHTML = "";
+    }
   }
   
   if (!watches.length) {
@@ -441,10 +489,10 @@ function render() {
   initCardEvents();
 }
 
+// ========== СОБЫТИЯ КАРТОЧЕК ==========
 function initCardEvents() {
-  // Клик по карточке — открыть лайтбокс
   document.querySelectorAll(".card").forEach(card => {
-    card.addEventListener("click", function(e) {
+    card.onclick = function(e) {
       if (e.target.closest(".fav-btn") || 
           e.target.closest(".icon-btn") || 
           e.target.closest(".slider-arrow") || 
@@ -458,29 +506,26 @@ function initCardEvents() {
       if (w && w.images && w.images.length > 0) {
         openLightbox(w.images, w.article, fmtPrice(w.price), 0);
       }
-    });
+    };
   });
   
-  // Кнопка избранного
   document.querySelectorAll(".fav-btn").forEach(btn => {
-    btn.addEventListener("click", function(e) {
+    btn.onclick = function(e) {
       e.stopPropagation();
       const article = this.getAttribute("data-fav");
       toggleFav(article);
-    });
+    };
   });
   
-  // Кнопка редактирования
   document.querySelectorAll("[data-edit]").forEach(btn => {
-    btn.addEventListener("click", function(e) {
+    btn.onclick = function(e) {
       e.stopPropagation();
       openEdit(parseInt(this.getAttribute("data-edit")));
-    });
+    };
   });
   
-  // Кнопка удаления
   document.querySelectorAll("[data-del]").forEach(btn => {
-    btn.addEventListener("click", function(e) {
+    btn.onclick = function(e) {
       e.stopPropagation();
       const idx = parseInt(this.getAttribute("data-del"));
       if (confirm("Удалить эту модель?")) {
@@ -489,10 +534,11 @@ function initCardEvents() {
         saveWatches(list);
         render();
       }
-    });
+    };
   });
 }
 
+// ========== СЛАЙДЕРЫ ==========
 function initSliders() {
   const sliders = document.querySelectorAll("[data-slider]");
   
@@ -517,23 +563,20 @@ function initSliders() {
       }
     }
     
-    // Стрелки
     for (let j = 0; j < arrows.length; j++) {
-      arrows[j].addEventListener("click", function(e) {
+      arrows[j].onclick = function(e) {
         e.stopPropagation();
         goTo(idx + parseInt(this.getAttribute("data-dir")));
-      });
+      };
     }
     
-    // Точки
     for (let j = 0; j < dots.length; j++) {
-      dots[j].addEventListener("click", function(e) {
+      dots[j].onclick = function(e) {
         e.stopPropagation();
         goTo(parseInt(this.getAttribute("data-k")));
-      });
+      };
     }
     
-    // Свайпы
     let startX = 0, dx = 0, dragging = false;
     
     slides.addEventListener("touchstart", function(e) {
@@ -564,6 +607,7 @@ function initSliders() {
 // ========== АВТОРИЗАЦИЯ ==========
 function updateAuthUI() {
   const area = document.getElementById("authArea");
+  if (!area) return;
   
   if (isAuthed) {
     area.innerHTML = `
@@ -571,23 +615,30 @@ function updateAuthUI() {
       <button class="btn btn-gold" id="addBtn">+ Добавить</button>
       <button class="btn" id="logoutBtn">Выйти</button>`;
     
-    document.getElementById("addBtn").addEventListener("click", openAddModal);
-    document.getElementById("logoutBtn").addEventListener("click", function() {
+    const addBtn = document.getElementById("addBtn");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const favBtnAuthed = document.getElementById("favBtnAuthed");
+    
+    if (addBtn) addBtn.onclick = openAddModal;
+    if (logoutBtn) logoutBtn.onclick = function() {
       isAuthed = false;
       updateAuthUI();
       updateSaveBanner();
       render();
-    });
-    document.getElementById("favBtnAuthed").addEventListener("click", openFavModal);
+    };
+    if (favBtnAuthed) favBtnAuthed.onclick = openFavModal;
   } else {
     area.innerHTML = `
       <button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count" id="favCountGuest">${favorites.length}</span></button>
       <button class="btn" id="loginBtn">Войти</button>`;
     
-    document.getElementById("loginBtn").addEventListener("click", function() {
+    const loginBtn = document.getElementById("loginBtn");
+    const favBtnGuest = document.getElementById("favBtnGuest");
+    
+    if (loginBtn) loginBtn.onclick = function() {
       openModal("loginModal");
-    });
-    document.getElementById("favBtnGuest").addEventListener("click", openFavModal);
+    };
+    if (favBtnGuest) favBtnGuest.onclick = openFavModal;
   }
 }
 
@@ -609,12 +660,20 @@ function openAddModal() {
 
 function renderAddThumbs() {
   const box = document.getElementById("addThumbs");
+  if (!box) return;
   box.innerHTML = pendingAddImages.map((src, k) =>
     `<div class="thumb-item">
       <img src="${src}" alt="">
       <button type="button" class="thumb-remove" data-k="${k}">×</button>
     </div>`
   ).join("");
+  
+  box.querySelectorAll(".thumb-remove").forEach(btn => {
+    btn.onclick = function() {
+      pendingAddImages.splice(parseInt(this.getAttribute("data-k")), 1);
+      renderAddThumbs();
+    };
+  });
 }
 
 let editingIndex = -1;
@@ -645,6 +704,7 @@ function openEdit(i) {
 
 function renderEditThumbs() {
   const box = document.getElementById("editThumbs");
+  if (!box) return;
   if (!editExistingImages.length) {
     box.innerHTML = `<div style="color:#8a8a94;font-size:12px">Фото пока нет</div>`;
     return;
@@ -655,21 +715,36 @@ function renderEditThumbs() {
       <button type="button" class="thumb-remove" data-k="${k}">×</button>
     </div>`
   ).join("");
+  
+  box.querySelectorAll(".thumb-remove").forEach(btn => {
+    btn.onclick = function() {
+      editExistingImages.splice(parseInt(this.getAttribute("data-k")), 1);
+      renderEditThumbs();
+    };
+  });
 }
 
 function renderEditNewThumbs() {
   const box = document.getElementById("editNewThumbs");
+  if (!box) return;
   box.innerHTML = editNewImages.map((src, k) =>
     `<div class="thumb-item">
       <img src="${src}" alt="">
       <button type="button" class="thumb-remove" data-k="${k}">×</button>
     </div>`
   ).join("");
+  
+  box.querySelectorAll(".thumb-remove").forEach(btn => {
+    btn.onclick = function() {
+      editNewImages.splice(parseInt(this.getAttribute("data-k")), 1);
+      renderEditNewThumbs();
+    };
+  });
 }
 
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
 function initApp() {
-  // Всегда выходим из аккаунта при загрузке
+  // ВСЕГДА выходим из аккаунта при загрузке
   isAuthed = false;
   
   // Чистим возможные флаги авторизации
@@ -686,25 +761,22 @@ function initApp() {
   render();
 }
 
-// ========== ОБРАБОТЧИКИ СОБЫТИЙ ==========
-document.addEventListener("DOMContentLoaded", function() {
-  
+// ========== НАВЕШИВАЕМ ВСЕ ОБРАБОТЧИКИ ==========
+function bindEvents() {
   // Лайтбокс
-  document.getElementById("lightboxClose").addEventListener("click", closeLightbox);
-  document.getElementById("lightboxPrev").addEventListener("click", function(e) {
-    e.stopPropagation();
-    lightboxPrev();
-  });
-  document.getElementById("lightboxNext").addEventListener("click", function(e) {
-    e.stopPropagation();
-    lightboxNext();
-  });
-  document.getElementById("lightbox").addEventListener("click", function(e) {
-    if (e.target === this) closeLightbox();
-  });
+  const lightboxClose = document.getElementById("lightboxClose");
+  const lightboxPrevBtn = document.getElementById("lightboxPrev");
+  const lightboxNextBtn = document.getElementById("lightboxNext");
+  const lightbox = document.getElementById("lightbox");
   
-  // Избранное — копирование
-  document.getElementById("copyFavBtn").addEventListener("click", function() {
+  if (lightboxClose) lightboxClose.onclick = closeLightbox;
+  if (lightboxPrevBtn) lightboxPrevBtn.onclick = function(e) { e.stopPropagation(); lightboxPrev(); };
+  if (lightboxNextBtn) lightboxNextBtn.onclick = function(e) { e.stopPropagation(); lightboxNext(); };
+  if (lightbox) lightbox.onclick = function(e) { if (e.target === this) closeLightbox(); };
+  
+  // Копирование избранного
+  const copyFavBtn = document.getElementById("copyFavBtn");
+  if (copyFavBtn) copyFavBtn.onclick = function() {
     const text = document.getElementById("favCopyArea").textContent;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(() => {
@@ -716,14 +788,24 @@ document.addEventListener("DOMContentLoaded", function() {
     } else {
       fallbackCopy(text);
     }
-  });
+  };
   
-  document.getElementById("closeFav").addEventListener("click", function() {
-    closeModal("favModal");
-  });
+  // Закрытие модалок
+  const closeFav = document.getElementById("closeFav");
+  const closeLogin = document.getElementById("closeLogin");
+  const closeAdd = document.getElementById("closeAdd");
+  const closeEdit = document.getElementById("closeEdit");
+  const closeGithub = document.getElementById("closeGithub");
+  
+  if (closeFav) closeFav.onclick = function() { closeModal("favModal"); };
+  if (closeLogin) closeLogin.onclick = function() { closeModal("loginModal"); };
+  if (closeAdd) closeAdd.onclick = function() { closeModal("addModal"); };
+  if (closeEdit) closeEdit.onclick = function() { closeModal("editModal"); };
+  if (closeGithub) closeGithub.onclick = function() { closeModal("githubModal"); };
   
   // Логин
-  document.getElementById("doLogin").addEventListener("click", function() {
+  const doLogin = document.getElementById("doLogin");
+  if (doLogin) doLogin.onclick = function() {
     const u = document.getElementById("loginUser").value.trim();
     const p = document.getElementById("loginPass").value;
     const err = document.getElementById("loginErr");
@@ -740,47 +822,29 @@ document.addEventListener("DOMContentLoaded", function() {
     } else {
       err.textContent = "Неверный логин или пароль";
     }
-  });
+  };
   
-  document.getElementById("closeLogin").addEventListener("click", function() {
-    closeModal("loginModal");
-  });
-  
-  // Добавление
-  document.getElementById("closeAdd").addEventListener("click", function() {
-    closeModal("addModal");
-  });
-  
-  document.getElementById("addThumbs").addEventListener("click", function(e) {
-    const removeBtn = e.target.closest(".thumb-remove");
-    if (!removeBtn) return;
-    pendingAddImages.splice(parseInt(removeBtn.getAttribute("data-k")), 1);
-    renderAddThumbs();
-  });
-  
-  document.getElementById("fImgFile").addEventListener("change", async function() {
+  // Добавление фото
+  const fImgFile = document.getElementById("fImgFile");
+  if (fImgFile) fImgFile.onchange = async function() {
     const files = Array.from(this.files || []);
     if (!files.length) return;
     pendingAddImages = pendingAddImages.concat(await compressFiles(files));
     renderAddThumbs();
     this.value = "";
-  });
+  };
   
-  document.getElementById("doAdd").addEventListener("click", function() {
+  // Добавление модели
+  const doAdd = document.getElementById("doAdd");
+  if (doAdd) doAdd.onclick = function() {
     const err = document.getElementById("addErr");
     err.textContent = "";
     
     const desc = document.getElementById("fDesc").value.trim();
     const price = document.getElementById("fPrice").value;
     
-    if (!desc) {
-      err.textContent = "Укажите описание";
-      return;
-    }
-    if (price === "" || Number(price) < 0) {
-      err.textContent = "Укажите цену";
-      return;
-    }
+    if (!desc) { err.textContent = "Укажите описание"; return; }
+    if (price === "" || Number(price) < 0) { err.textContent = "Укажите цену"; return; }
     
     const list = loadWatches();
     list.push({
@@ -795,56 +859,32 @@ document.addEventListener("DOMContentLoaded", function() {
     saveWatches(list);
     closeModal("addModal");
     render();
-  });
+  };
   
-  // Редактирование
-  document.getElementById("closeEdit").addEventListener("click", function() {
-    closeModal("editModal");
-  });
-  
-  document.getElementById("editThumbs").addEventListener("click", function(e) {
-    const removeBtn = e.target.closest(".thumb-remove");
-    if (!removeBtn) return;
-    editExistingImages.splice(parseInt(removeBtn.getAttribute("data-k")), 1);
-    renderEditThumbs();
-  });
-  
-  document.getElementById("editNewThumbs").addEventListener("click", function(e) {
-    const removeBtn = e.target.closest(".thumb-remove");
-    if (!removeBtn) return;
-    editNewImages.splice(parseInt(removeBtn.getAttribute("data-k")), 1);
-    renderEditNewThumbs();
-  });
-  
-  document.getElementById("eImgFile").addEventListener("change", async function() {
+  // Редактирование фото
+  const eImgFile = document.getElementById("eImgFile");
+  if (eImgFile) eImgFile.onchange = async function() {
     const files = Array.from(this.files || []);
     if (!files.length) return;
     editNewImages = editNewImages.concat(await compressFiles(files));
     renderEditNewThumbs();
     this.value = "";
-  });
+  };
   
-  document.getElementById("doEdit").addEventListener("click", function() {
+  // Сохранение редактирования
+  const doEdit = document.getElementById("doEdit");
+  if (doEdit) doEdit.onclick = function() {
     const err = document.getElementById("editErr");
     err.textContent = "";
     
     const desc = document.getElementById("eDesc").value.trim();
     const price = document.getElementById("ePrice").value;
     
-    if (!desc) {
-      err.textContent = "Укажите описание";
-      return;
-    }
-    if (price === "" || Number(price) < 0) {
-      err.textContent = "Укажите цену";
-      return;
-    }
+    if (!desc) { err.textContent = "Укажите описание"; return; }
+    if (price === "" || Number(price) < 0) { err.textContent = "Укажите цену"; return; }
     
     const list = loadWatches();
-    if (!list[editingIndex]) {
-      err.textContent = "Карточка не найдена";
-      return;
-    }
+    if (!list[editingIndex]) { err.textContent = "Карточка не найдена"; return; }
     
     list[editingIndex] = {
       ...list[editingIndex],
@@ -859,46 +899,18 @@ document.addEventListener("DOMContentLoaded", function() {
     saveWatches(list);
     closeModal("editModal");
     render();
-  });
+  };
   
-  // Сохранение
-  document.getElementById("saveBtn").addEventListener("click", saveToFile);
-  document.getElementById("githubBtn").addEventListener("click", updateGithub);
-  
-  // Категории
-  document.getElementById("categoryMenu").addEventListener("click", function(e) {
-    const btn = e.target.closest(".cat-btn");
-    if (!btn) return;
-    
-    document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    currentCategory = btn.getAttribute("data-cat");
-    render();
-  });
-  
-  // Фильтры
-  document.getElementById("applyFilter").addEventListener("click", function() {
-    const min = document.getElementById("priceMin").value;
-    const max = document.getElementById("priceMax").value;
-    priceFilterMin = min === "" ? null : Number(min);
-    priceFilterMax = max === "" ? null : Number(max);
-    render();
-  });
-  
-  document.getElementById("resetFilter").addEventListener("click", function() {
-    document.getElementById("priceMin").value = "";
-    document.getElementById("priceMax").value = "";
-    priceFilterMin = null;
-    priceFilterMax = null;
-    render();
-  });
+  // Сохранение в файл
+  const saveBtn = document.getElementById("saveBtn");
+  if (saveBtn) saveBtn.onclick = saveToFile;
   
   // GitHub
-  document.getElementById("closeGithub").addEventListener("click", function() {
-    closeModal("githubModal");
-  });
+  const githubBtn = document.getElementById("githubBtn");
+  if (githubBtn) githubBtn.onclick = updateGithub;
   
-  document.getElementById("saveGithub").addEventListener("click", function() {
+  const saveGithub = document.getElementById("saveGithub");
+  if (saveGithub) saveGithub.onclick = function() {
     const username = document.getElementById("ghUsername").value.trim();
     const repo = document.getElementById("ghRepo").value.trim();
     const token = document.getElementById("ghToken").value.trim();
@@ -914,6 +926,63 @@ document.addEventListener("DOMContentLoaded", function() {
     err.textContent = "";
     closeModal("githubModal");
     alert("✅ Настройки GitHub сохранены!");
-  });
+  };
   
-  // Заполняем настройки
+  // Категории
+  const categoryMenu = document.getElementById("categoryMenu");
+  if (categoryMenu) categoryMenu.onclick = function(e) {
+    const btn = e.target.closest(".cat-btn");
+    if (!btn) return;
+    
+    document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    currentCategory = btn.getAttribute("data-cat");
+    render();
+  };
+  
+  // Фильтры
+  const applyFilter = document.getElementById("applyFilter");
+  if (applyFilter) applyFilter.onclick = function() {
+    const min = document.getElementById("priceMin").value;
+    const max = document.getElementById("priceMax").value;
+    priceFilterMin = min === "" ? null : Number(min);
+    priceFilterMax = max === "" ? null : Number(max);
+    render();
+  };
+  
+  const resetFilter = document.getElementById("resetFilter");
+  if (resetFilter) resetFilter.onclick = function() {
+    document.getElementById("priceMin").value = "";
+    document.getElementById("priceMax").value = "";
+    priceFilterMin = null;
+    priceFilterMax = null;
+    render();
+  };
+  
+  // Заполняем настройки GitHub если есть
+  const ghSettings = getGithubSettings();
+  if (ghSettings) {
+    const ghUsername = document.getElementById("ghUsername");
+    const ghRepo = document.getElementById("ghRepo");
+    const ghToken = document.getElementById("ghToken");
+    const ghBranch = document.getElementById("ghBranch");
+    
+    if (ghUsername) ghUsername.value = ghSettings.username || "";
+    if (ghRepo) ghRepo.value = ghSettings.repo || "";
+    if (ghToken) ghToken.value = ghSettings.token || "";
+    if (ghBranch) ghBranch.value = ghSettings.branch || "main";
+  }
+}
+
+// ========== ЗАПУСК ==========
+// Ждём загрузки DOM
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function() {
+    bindEvents();
+    initApp();
+  });
+} else {
+  // DOM уже загружен
+  bindEvents();
+  initApp();
+}
