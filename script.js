@@ -1,19 +1,20 @@
 // ========== ОЧИСТКА КЕША ==========
 (function(){
-  const K='mdt_cache_v16';
+  const K='mdt_cache_v17';
   if(localStorage.getItem(K)==='true')return;
+  console.log('🧹 v17 — очистка');
   try{
     const f=localStorage.getItem('mdt_favorites_v1');
-    const g=localStorage.getItem('mdt_github_v16');
+    const g=localStorage.getItem('mdt_github_v17');
     localStorage.clear();
     if(f)localStorage.setItem('mdt_favorites_v1',f);
-    if(g)localStorage.setItem('mdt_github_v16',g);
+    if(g)localStorage.setItem('mdt_github_v17',g);
     localStorage.setItem(K,'true');
   }catch(e){}
 })();
 
 const AUTH={user:"anastasia_zy_zy",pass:"anastasia_zy_zy"};
-const LS_KEY="mdt_watches_v2",FAV_KEY="mdt_favorites_v1",GH_KEY="mdt_github_v16",DATA_URL='data.json';
+const LS_KEY="mdt_watches_v2",FAV_KEY="mdt_favorites_v1",GH_KEY="mdt_github_v17",DATA_URL='data.json';
 let canUseStorage=false;
 try{localStorage.setItem('__t','1');localStorage.removeItem('__t');canUseStorage=true;}catch(e){}
 
@@ -174,7 +175,6 @@ async function saveToGithub(){
   document.getElementById("githubProgress").classList.add("show");
   try{
     const watches=loadWatchesSync();
-    // СОХРАНЯЕМ ФОТО В DATA.JSON
     const watchesWithImages=watches.map(w=>({...w,images:w.images||[]}));
     catalogData=watchesWithImages;
     if(canUseStorage)localStorage.setItem(LS_KEY,JSON.stringify(catalogData));
@@ -221,7 +221,29 @@ function initCardEvents(){document.querySelectorAll(".card").forEach(card=>{card
 function initSliders(){document.querySelectorAll("[data-slider]").forEach(slider=>{const slides=slider.querySelector(".slides"),dots=slider.querySelectorAll(".slider-dot"),arrows=slider.querySelectorAll(".slider-arrow");if(!slides||slides.children.length<2)return;const total=slides.children.length;let idx=0;let counter=slider.querySelector('.photo-counter');if(!counter){counter=document.createElement('div');counter.className='photo-counter';slider.appendChild(counter);}const go=n=>{idx=(n+total)%total;if(idx<0)idx=total-1;slides.style.transform=`translateX(-${idx*100}%)`;dots.forEach((d,k)=>d.classList.toggle("active",k===idx));counter.textContent=`${idx+1}/${total}`;};counter.textContent=`1/${total}`;arrows.forEach(a=>a.onclick=e=>{e.stopPropagation();go(idx+parseInt(a.getAttribute("data-dir")));});dots.forEach((d,j)=>d.onclick=e=>{e.stopPropagation();go(j);});let sx=0,dx=0,dragging=false;slides.addEventListener("touchstart",e=>{sx=e.touches[0].clientX;dx=0;dragging=true;slides.style.transition="none";},{passive:true});slides.addEventListener("touchmove",e=>{if(!dragging)return;dx=e.touches[0].clientX-sx;slides.style.transform=`translateX(${-idx*slides.offsetWidth+dx}px)`;},{passive:true});slides.addEventListener("touchend",()=>{if(!dragging)return;dragging=false;slides.style.transition="transform 0.3s ease-out";if(dx<-slides.offsetWidth*0.2)go(idx+1);else if(dx>slides.offsetWidth*0.2)go(idx-1);else go(idx);},{passive:true});});}
 
 // ========== АВТОРИЗАЦИЯ ==========
-function updateAuthUI(){const area=document.getElementById("authArea");if(!area)return;if(isAuthed){area.innerHTML=`<button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn btn-gold" id="addBtn">+ Добавить</button><button class="btn btn-gold" id="githubBtnTop">🚀 На GitHub</button><button class="btn" id="excelBtnTop">📥 Excel</button><button class="btn" id="uploadExcelBtnTop">📤 Загрузить</button><button class="btn" id="saveBtnTop">💾 HTML</button><button class="btn" id="logoutBtn">Выйти</button>`;document.getElementById("addBtn").onclick=openAddModal;document.getElementById("githubBtnTop").onclick=saveToGithub;document.getElementById("excelBtnTop").onclick=downloadExcel;document.getElementById("uploadExcelBtnTop").onclick=uploadExcel;document.getElementById("saveBtnTop").onclick=saveToFile;document.getElementById("logoutBtn").onclick=()=>{isAuthed=false;updateAuthUI();render();};document.getElementById("favBtnAuthed").onclick=openFavModal;document.getElementById("saveBanner").style.display="block";}else{area.innerHTML=`<button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn" id="loginBtn">Войти</button>`;document.getElementById("loginBtn").onclick=()=>openModal("loginModal");document.getElementById("favBtnGuest").onclick=openFavModal;document.getElementById("saveBanner").style.display="none";}}
+function updateAuthUI(){
+  const area=document.getElementById("authArea");
+  if(!area)return;
+  
+  if(isAuthed){
+    area.innerHTML=`<button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn btn-gold" id="addBtn">+ Добавить</button><button class="btn btn-gold" id="githubBtnTop">🚀 На GitHub</button><button class="btn" id="excelBtnTop">📥 Excel</button><button class="btn" id="uploadExcelBtnTop">📤 Загрузить</button><button class="btn" id="saveBtnTop">💾 HTML</button><button class="btn" id="logoutBtn">Выйти</button>`;
+    document.getElementById("addBtn").onclick=openAddModal;
+    document.getElementById("githubBtnTop").onclick=saveToGithub;
+    document.getElementById("excelBtnTop").onclick=downloadExcel;
+    document.getElementById("uploadExcelBtnTop").onclick=uploadExcel;
+    document.getElementById("saveBtnTop").onclick=saveToFile;
+    document.getElementById("logoutBtn").onclick=()=>{isAuthed=false;updateAuthUI();render();};
+    document.getElementById("favBtnAuthed").onclick=openFavModal;
+    document.getElementById("saveBanner").style.display="block";
+  }else{
+    area.innerHTML=`<button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn" id="loginBtn">Войти</button>`;
+    document.getElementById("loginBtn").onclick=()=>openModal("loginModal");
+    document.getElementById("favBtnGuest").onclick=openFavModal;
+    document.getElementById("saveBanner").style.display="none";
+    // ПРИНУДИТЕЛЬНО убираем класс authed
+    document.body.classList.remove("authed");
+  }
+}
 
 // ========== ДОБАВЛЕНИЕ/РЕДАКТИРОВАНИЕ ==========
 let pendingAddImages=[];
@@ -244,8 +266,37 @@ function setupSearch(){document.getElementById("searchInput").addEventListener('
 // ========== ПРЕЛОАДЕР ==========
 function hidePreloader(){setTimeout(()=>document.getElementById('preloader').classList.add('hidden'),500);}
 
-// ========== ИНИЦИАЛИЗАЦИЯ ==========
-async function initApp(){isAuthed=false;favorites=loadFavorites();saveFavorites();updateAuthUI();await render();hidePreloader();}
+// ========== ИНИЦИАЛИЗАЦИЯ (ИСПРАВЛЕНО) ==========
+async function initApp(){
+  // ПРИНУДИТЕЛЬНЫЙ СБРОС ВСЕХ АВТОРИЗАЦИЙ
+  isAuthed = false;
+  
+  // Очищаем всё, что могло остаться
+  sessionStorage.clear();
+  if(canUseStorage){
+    try{localStorage.removeItem('mdt_authed');}catch(e){}
+    try{localStorage.removeItem('mdt_admin_auth_v5');}catch(e){}
+    try{localStorage.removeItem('mdt_admin_auth_v6');}catch(e){}
+    try{localStorage.removeItem('mdt_admin_auth_v7');}catch(e){}
+    try{localStorage.removeItem('mdt_admin_auth_v8');}catch(e){}
+    try{localStorage.removeItem('mdt_admin_auth_v9');}catch(e){}
+    try{localStorage.removeItem('mdt_admin_auth_v10');}catch(e){}
+    try{localStorage.removeItem('mdt_admin_auth_v11');}catch(e){}
+    try{localStorage.removeItem('mdt_admin_auth_v12');}catch(e){}
+    try{localStorage.removeItem('mdt_admin_auth_v13');}catch(e){}
+    try{localStorage.removeItem('mdt_admin_auth_v14');}catch(e){}
+    try{localStorage.removeItem('mdt_admin_auth_v15');}catch(e){}
+    try{localStorage.removeItem('mdt_admin_auth_v16');}catch(e){}
+  }
+  
+  console.log('🔒 Все авторизации сброшены. Сайт открыт как гость.');
+  
+  favorites = loadFavorites();
+  saveFavorites();
+  updateAuthUI();
+  await render();
+  hidePreloader();
+}
 
 // ========== ОБРАБОТЧИКИ ==========
 function bindEvents(){
@@ -278,6 +329,6 @@ function bindEvents(){
 }
 
 // ========== ЗАПУСК ==========
-console.log('🚀 TEMPUS KZ v16 — фото в data.json');
+console.log('🚀 TEMPUS KZ v17 — гарантированный гость при запуске');
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{bindEvents();initApp();});
 else{bindEvents();initApp();}
