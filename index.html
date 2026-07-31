@@ -9,33 +9,14 @@
 <meta http-equiv="Expires" content="0">
 <title>TEMPUS KZ — Наручные часы | Кокшетау</title>
 <link rel="icon" type="image/png" href="favicon.jpg">
-<link rel="stylesheet" href="style.css?v=14">
-<style>
-/* Карточка — цена прибита к низу */
-.card {
-  display: flex;
-  flex-direction: column;
-}
-.slider {
-  flex-shrink: 0;
-}
-.body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  padding: 15px;
-}
-.desc {
-  flex: 1;
-}
-.price-wrap {
-  margin-top: auto;
-  padding-top: 10px;
-  border-top: 1px solid rgba(212,175,55,0.15);
-}
-</style>
+<link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
+
+<!-- Прелоадер -->
+<div id="preloader">
+  <div class="preloader-spinner"></div>
+</div>
 
 <header>
   <div class="nav">
@@ -63,6 +44,10 @@
   <button class="cat-btn active" data-cat="all">Все модели</button>
   <button class="cat-btn" data-cat="men">Мужские часы</button>
   <button class="cat-btn" data-cat="women">Женские часы</button>
+</div>
+
+<div class="search-bar">
+  <input type="text" id="searchInput" placeholder="🔍 Поиск по названию, описанию или артикулу...">
 </div>
 
 <div class="filter-bar">
@@ -94,8 +79,16 @@
 
 <main class="grid" id="grid"></main>
 
+<!-- Кнопка Наверх -->
+<button id="scrollTopBtn" title="Наверх">↑</button>
+
 <footer id="mainFooter">
-  © 2026 TEMPUS KZ · Оффлайн-каталог
+  <div class="footer-contacts">
+    📞 <a href="tel:+77001234567">+7 (700) 123-45-67</a> · 
+    📍 Кокшетау · 
+    💬 <a href="https://wa.me/77001234567" target="_blank">WhatsApp</a>
+  </div>
+  <div>© 2026 TEMPUS KZ · Оффлайн-каталог</div>
 </footer>
 
 <!-- Скрытый input для загрузки Excel -->
@@ -147,9 +140,9 @@
       <div class="field"><label>Количество</label><input type="number" id="fQty" min="0" placeholder="3"></div>
     </div>
     <div class="field"><label>Фото часов (можно несколько)</label>
-      <div class="file-input">
+      <div class="file-input" id="addFileZone">
         <input type="file" id="fImgFile" accept="image/*" multiple>
-        <div class="file-input-text"><b>Нажмите для загрузки</b> фото<br><small>JPG, PNG, WEBP</small></div>
+        <div class="file-input-text"><b>Нажмите или перетащите</b> фото<br><small>JPG, PNG, WEBP</small></div>
       </div>
       <div class="thumbs-gallery" id="addThumbs"></div>
     </div>
@@ -176,11 +169,11 @@
       <div class="field"><label>Цена (₸)</label><input type="number" id="ePrice" min="0"></div>
       <div class="field"><label>Количество</label><input type="number" id="eQty" min="0"></div>
     </div>
-    <div class="field"><label>Текущие фото</label><div class="thumbs-gallery" id="editThumbs"></div></div>
+    <div class="field"><label>Текущие фото (нажмите × для удаления)</label><div class="thumbs-gallery" id="editThumbs"></div></div>
     <div class="field"><label>Добавить ещё фото</label>
-      <div class="file-input">
+      <div class="file-input" id="editFileZone">
         <input type="file" id="eImgFile" accept="image/*" multiple>
-        <div class="file-input-text"><b>Выберите фото</b></div>
+        <div class="file-input-text"><b>Нажмите или перетащите</b> фото</div>
       </div>
       <div class="thumbs-gallery" id="editNewThumbs"></div>
     </div>
@@ -202,6 +195,7 @@
     <div class="field"><label>Personal Access Token</label><input type="password" id="ghToken" placeholder="ghp_..."></div>
     <div class="field"><label>Ветка</label><input type="text" id="ghBranch" value="main" placeholder="main"></div>
     <div class="err" id="githubErr"></div>
+    <div id="githubProgress" class="github-progress"><div class="bar"></div></div>
     <div class="actions">
       <button class="btn" id="closeGithub">Отмена</button>
       <button class="btn btn-gold" id="saveGithub">💾 Сохранить и отправить</button>
@@ -224,6 +218,6 @@
 </div>
 
 <script id="catalog-data" type="application/json">[]</script>
-<script src="script.js?v=14"></script>
+<script src="script.js?v=15"></script>
 </body>
 </html>
