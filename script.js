@@ -291,31 +291,63 @@ function initSliders() { document.querySelectorAll("[data-slider]").forEach(slid
 
 // ========== АВТОРИЗАЦИЯ ==========
 function updateAuthUI() {
-  const area = document.getElementById("authArea"); if (!area) return;
+  const area = document.getElementById("authArea");
+  if (!area) return;
   const banner = document.getElementById("saveBanner");
   
   if (isAuthed) {
-    area.innerHTML = `<button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn btn-gold" id="addBtn">+ Добавить</button><button class="btn btn-gold" id="githubBtnTop">🚀 СОХРАНИТЬ!!!</button><button class="btn" id="excelBtnTop">📥 Сохранить Excel</button><button class="btn" id="uploadExcelBtnTop">📤 Загрузить свой Excel</button><button class="btn" id="logoutBtn">Выйти</button>`;
-    document.getElementById("addBtn").onclick = openAddModal;
-    document.getElementById("githubBtnTop").onclick = saveToGithub;
-    document.getElementById("excelBtnTop").onclick = downloadExcel;
-    document.getElementById("uploadExcelBtnTop").onclick = uploadExcel;
-    document.getElementById("saveBtnTop").onclick = saveToFile;
-    document.getElementById("logoutBtn").onclick = () => { isAuthed = false; updateAuthUI(); render(); };
-    document.getElementById("favBtnAuthed").onclick = openFavModal;
+    // 1. Сначала вставляем HTML
+    area.innerHTML = `
+      <button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button>
+      <button class="btn btn-gold" id="addBtn">+ Добавить</button>
+      <button class="btn btn-gold" id="githubBtnTop">🚀 На GitHub</button>
+      <button class="btn" id="excelBtnTop">📥 Excel</button>
+      <button class="btn" id="uploadExcelBtnTop">📤 Загрузить</button>
+      <button class="btn" id="saveBtnTop">💾 HTML</button>
+      <button class="btn" id="logoutBtn">Выйти</button>`;
     
-    // ВАЖНО: Включаем режим редактирования
+    // 2. Потом навешиваем обработчики (с проверками)
+    const addBtn = document.getElementById("addBtn");
+    const githubBtnTop = document.getElementById("githubBtnTop");
+    const excelBtnTop = document.getElementById("excelBtnTop");
+    const uploadExcelBtnTop = document.getElementById("uploadExcelBtnTop");
+    const saveBtnTop = document.getElementById("saveBtnTop");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const favBtnAuthed = document.getElementById("favBtnAuthed");
+    
+    if (addBtn) addBtn.onclick = openAddModal;
+    if (githubBtnTop) githubBtnTop.onclick = saveToGithub;
+    if (excelBtnTop) excelBtnTop.onclick = downloadExcel;
+    if (uploadExcelBtnTop) uploadExcelBtnTop.onclick = uploadExcel;
+    if (saveBtnTop) saveBtnTop.onclick = saveToFile;
+    if (logoutBtn) {
+      logoutBtn.onclick = function() {
+        isAuthed = false;
+        document.body.classList.remove("authed");
+        updateAuthUI();
+        render();
+      };
+    }
+    if (favBtnAuthed) favBtnAuthed.onclick = openFavModal;
+    
+    // Включаем режим редактирования
     document.body.classList.add("authed");
-    
     if (banner) banner.style.display = "block";
+    
   } else {
-    area.innerHTML = `<button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn" id="loginBtn">Войти</button>`;
-    document.getElementById("loginBtn").onclick = () => openModal("loginModal");
-    document.getElementById("favBtnGuest").onclick = openFavModal;
+    // Гость
+    area.innerHTML = `
+      <button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count">${favorites.length}</span></button>
+      <button class="btn" id="loginBtn">Войти</button>`;
     
-    // ВАЖНО: Выключаем режим редактирования
+    const loginBtn = document.getElementById("loginBtn");
+    const favBtnGuest = document.getElementById("favBtnGuest");
+    
+    if (loginBtn) loginBtn.onclick = function() { openModal("loginModal"); };
+    if (favBtnGuest) favBtnGuest.onclick = openFavModal;
+    
+    // Выключаем режим редактирования
     document.body.classList.remove("authed");
-    
     if (banner) banner.style.display = "none";
   }
 }
