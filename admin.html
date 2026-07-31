@@ -86,10 +86,13 @@ pre { background: #111; padding: 15px; border-radius: 8px; overflow-x: auto; mar
 <div id="lockedScreen" class="locked">
   <h2>🔒 Доступ запрещён</h2>
   <p>Для доступа к админ-панели необходимо авторизоваться на основном сайте под учётной записью администратора.</p>
-  <a href="index.html" class="btn">🏠 На главную</a>
+  <p style="font-size:14px;margin-bottom:10px;">Логин: <b style="color:#d4af37;">anastasia_zy_zy</b></p>
+  <a href="index.html" class="btn">🏠 На главную (войти)</a>
+  <br><br>
+  <button class="btn btn-secondary" onclick="checkAuthAgain()">🔄 Проверить снова</button>
 </div>
 
-<!-- Контент админ-панели (скрыт по умолчанию) -->
+<!-- Контент админ-панели -->
 <div id="adminContent">
   <h1>⚙️ TEMPUS KZ — Админ-панель</h1>
 
@@ -159,30 +162,69 @@ pre { background: #111; padding: 15px; border-radius: 8px; overflow-x: auto; mar
 
 <script>
 // ========== ПРОВЕРКА АВТОРИЗАЦИИ ==========
-const AUTH_KEY = 'mdt_admin_auth_v5';
+const AUTH_KEYS = ['mdt_admin_auth_v9', 'mdt_admin_auth_v8', 'mdt_admin_auth_v7', 'mdt_admin_auth_v6', 'mdt_admin_auth_v5'];
 const LS_KEY = 'mdt_watches_v2';
-const GITHUB_SETTINGS_KEY = 'mdt_github_settings_v5';
+const GITHUB_SETTINGS_KEY = 'mdt_github_settings_v9';
+const ADMIN_USER = 'anastasia_zy_zy';
 
 function checkAuth() {
-  const authData = sessionStorage.getItem(AUTH_KEY);
-  if (!authData) return false;
-  
-  try {
-    const data = JSON.parse(authData);
-    // Проверяем, что авторизация не старше 24 часов
-    if (Date.now() - data.timestamp > 24 * 60 * 60 * 1000) {
-      sessionStorage.removeItem(AUTH_KEY);
-      return false;
+  // 1. Проверяем sessionStorage
+  for (const key of AUTH_KEYS) {
+    const authData = sessionStorage.getItem(key);
+    if (authData) {
+      try {
+        const data = JSON.parse(authData);
+        if (data.user === ADMIN_USER) {
+          console.log('✅ Авторизация через sessionStorage:', key);
+          return true;
+        }
+      } catch (e) {}
     }
-    return data.user === 'anastasia_zy_zy';
-  } catch (e) {
-    return false;
   }
+  
+  // 2. Проверяем localStorage (резерв)
+  for (const key of AUTH_KEYS) {
+    const authData = localStorage.getItem(key);
+    if (authData) {
+      try {
+        const data = JSON.parse(authData);
+        if (data.user === ADMIN_USER) {
+          // Проверяем, не старше ли 24 часов
+          if (Date.now() - data.timestamp < 24 * 60 * 60 * 1000) {
+            console.log('✅ Авторизация через localStorage:', key);
+            // Дублируем в sessionStorage
+            sessionStorage.setItem(key, authData);
+            return true;
+          } else {
+            // Удаляем просроченную запись
+            localStorage.removeItem(key);
+          }
+        }
+      } catch (e) {}
+    }
+  }
+  
+  console.warn('❌ Авторизация не найдена');
+  return false;
 }
 
 function logout() {
-  sessionStorage.removeItem(AUTH_KEY);
+  // Очищаем все ключи авторизации
+  AUTH_KEYS.forEach(key => {
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
+  });
   window.location.href = 'index.html';
+}
+
+function checkAuthAgain() {
+  if (checkAuth()) {
+    document.getElementById('lockedScreen').style.display = 'none';
+    document.getElementById('adminContent').style.display = 'block';
+    init();
+  } else {
+    alert('❌ Авторизация не найдена.\n\nВойдите на главной странице под логином anastasia_zy_zy, затем вернитесь сюда.');
+  }
 }
 
 // При загрузке страницы
@@ -193,6 +235,15 @@ if (checkAuth()) {
 } else {
   document.getElementById('lockedScreen').style.display = 'block';
   document.getElementById('adminContent').style.display = 'none';
+  
+  // Пробуем автоматически проверить через секунду (может sessionStorage ещё не загрузился)
+  setTimeout(() => {
+    if (checkAuth()) {
+      document.getElementById('lockedScreen').style.display = 'none';
+      document.getElementById('adminContent').style.display = 'block';
+      init();
+    }
+  }, 1000);
 }
 
 // ========== GITHUB ==========
@@ -213,6 +264,11 @@ function saveGithubSettings() {
   
   if (!settings.username || !settings.repo || !settings.token) {
     showStatus('❌ Заполните все поля GitHub', 'status-error');
+    return;
+  }
+  
+  if (!settings.token.startsWith('ghp_') && !settings.token.startsWith('github_pat_')) {
+    showStatus('❌ Токен должен начинаться с ghp_ или github_pat_', 'status-error');
     return;
   }
   
@@ -242,29 +298,32 @@ async function saveToGithub() {
   
   try {
     await pushFile(settings, 'data.json', JSON.stringify(data, null, 2));
-    showStatus('✅ data.json сохранён на GitHub! Сайт обновится через 1-2 минуты.', 'status-success');
+    showStatus('✅ data.json сохранён на GitHub! Обновится через 1-2 минуты.', 'status-success');
   } catch (e) {
     showStatus('❌ Ошибка GitHub: ' + e.message, 'status-error');
+    console.error(e);
   }
 }
 
 async function pushFile(settings, path, content) {
+  const token = settings.token.trim();
   const encoded = btoa(unescape(encodeURIComponent(content)));
   const apiUrl = `https://api.github.com/repos/${settings.username}/${settings.repo}/contents/${path}`;
   
   let sha = null;
   try {
-    const getResp = await fetch(apiUrl + '?ref=' + settings.branch, {
+    const resp = await fetch(apiUrl + '?ref=' + settings.branch, {
       headers: {
-        'Authorization': `token ${settings.token}`,
-        'Accept': 'application/vnd.github.v3+json'
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'X-GitHub-Api-Version': '2022-11-28'
       }
     });
-    if (getResp.ok) {
-      const fileData = await getResp.json();
-      sha = fileData.sha;
-    }
-  } catch (e) {}
+    if (resp.ok) sha = (await resp.json()).sha;
+    else if (resp.status === 401) throw new Error('Неверный токен');
+  } catch (e) {
+    if (e.message === 'Неверный токен') throw e;
+  }
   
   const body = {
     message: `Update ${path} - ${new Date().toISOString()}`,
@@ -273,19 +332,21 @@ async function pushFile(settings, path, content) {
   };
   if (sha) body.sha = sha;
   
-  const putResp = await fetch(apiUrl, {
+  const resp = await fetch(apiUrl, {
     method: 'PUT',
     headers: {
-      'Authorization': `token ${settings.token}`,
+      'Authorization': `Bearer ${token}`,
       'Accept': 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'X-GitHub-Api-Version': '2022-11-28'
     },
     body: JSON.stringify(body)
   });
   
-  if (!putResp.ok) {
-    const errData = await putResp.json();
-    throw new Error(errData.message || 'Ошибка отправки');
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    if (resp.status === 401) throw new Error('Неверный токен. Создайте новый с правами repo.');
+    throw new Error(err.message || 'HTTP ' + resp.status);
   }
 }
 
@@ -327,16 +388,16 @@ async function loadData() {
 function renderTable() {
   const tbody = document.getElementById('tableBody');
   
-  if (data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:30px;color:#8a8a94;">Нет данных. Нажмите "➕ Добавить строку"</td></tr>`;
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;color:#8a8a94;">Нет данных</td></tr>';
     return;
   }
   
   tbody.innerHTML = data.map((item, index) => `
     <tr>
-      <td><input type="text" value="${escapeAttr(item.article || '')}" data-idx="${index}" data-field="article" style="min-width:100px;"></td>
-      <td><input type="text" value="${escapeAttr(item.name || '')}" data-idx="${index}" data-field="name" style="min-width:120px;"></td>
-      <td><textarea data-idx="${index}" data-field="desc" style="min-width:150px;">${escapeHtml(item.desc || '')}</textarea></td>
+      <td><input type="text" value="${escAttr(item.article || '')}" data-idx="${index}" data-field="article" style="min-width:100px;"></td>
+      <td><input type="text" value="${escAttr(item.name || '')}" data-idx="${index}" data-field="name" style="min-width:120px;"></td>
+      <td><textarea data-idx="${index}" data-field="desc" style="min-width:150px;">${escHtml(item.desc || '')}</textarea></td>
       <td>
         <select data-idx="${index}" data-field="category">
           <option value="men" ${item.category === 'men' ? 'selected' : ''}>Мужские</option>
@@ -345,7 +406,7 @@ function renderTable() {
       </td>
       <td><input type="number" value="${item.price || 0}" data-idx="${index}" data-field="price" style="min-width:90px;"></td>
       <td><input type="number" value="${item.qty || 0}" data-idx="${index}" data-field="qty" style="min-width:70px;"></td>
-      <td><input type="text" value="${escapeAttr((item.images || []).join(', '))}" data-idx="${index}" data-field="imagesStr" style="min-width:150px;"></td>
+      <td><input type="text" value="${escAttr((item.images || []).join(', '))}" data-idx="${index}" data-field="imagesStr" style="min-width:150px;"></td>
       <td class="actions-cell">
         <button class="icon-btn" onclick="saveRow(${index})" title="Сохранить">💾</button>
         <button class="icon-btn" onclick="duplicateRow(${index})" title="Дублировать">📋</button>
@@ -362,15 +423,12 @@ function renderTable() {
 }
 
 function saveRow(index, silent = false) {
-  const inputs = document.querySelectorAll(`[data-idx="${index}"]`);
-  
-  inputs.forEach(input => {
+  document.querySelectorAll(`[data-idx="${index}"]`).forEach(input => {
     const field = input.getAttribute('data-field');
     let value = input.value;
     
-    if (field === 'price' || field === 'qty') {
-      value = Number(value) || 0;
-    } else if (field === 'imagesStr') {
+    if (field === 'price' || field === 'qty') value = Number(value) || 0;
+    else if (field === 'imagesStr') {
       data[index].images = value.split(',').map(s => s.trim()).filter(s => s);
       return;
     }
@@ -380,7 +438,6 @@ function saveRow(index, silent = false) {
   
   localStorage.setItem(LS_KEY, JSON.stringify(data));
   updatePreview();
-  
   if (!silent) showStatus(`✅ Строка ${index + 1} сохранена`, 'status-success');
 }
 
@@ -437,14 +494,14 @@ function showStatus(message, className) {
   if (className === 'status-success') setTimeout(() => status.classList.remove('show'), 4000);
 }
 
-function escapeHtml(s) {
+function escHtml(s) {
   if (!s) return '';
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-function escapeAttr(s) {
+function escAttr(s) {
   if (!s) return '';
-  return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(s).replace(/"/g, '&quot;');
 }
 
 function init() {
