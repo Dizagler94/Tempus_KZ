@@ -290,13 +290,14 @@ function initCardEvents() { document.querySelectorAll(".card").forEach(card => {
 function initSliders() { document.querySelectorAll("[data-slider]").forEach(slider => { const slides = slider.querySelector(".slides"), dots = slider.querySelectorAll(".slider-dot"), arrows = slider.querySelectorAll(".slider-arrow"); if (!slides || slides.children.length < 2) return; const total = slides.children.length; let idx = 0; let counter = slider.querySelector('.photo-counter'); if (!counter) { counter = document.createElement('div'); counter.className = 'photo-counter'; slider.appendChild(counter); } const go = n => { idx = (n + total) % total; if (idx < 0) idx = total - 1; slides.style.transform = `translateX(-${idx * 100}%)`; dots.forEach((d, k) => d.classList.toggle("active", k === idx)); counter.textContent = `${idx + 1}/${total}`; }; counter.textContent = `1/${total}`; arrows.forEach(a => a.onclick = e => { e.stopPropagation(); go(idx + parseInt(a.getAttribute("data-dir"))); }); dots.forEach((d, j) => d.onclick = e => { e.stopPropagation(); go(j); }); let sx = 0, dx = 0, dragging = false; slides.addEventListener("touchstart", e => { sx = e.touches[0].clientX; dx = 0; dragging = true; slides.style.transition = "none"; }, { passive: true }); slides.addEventListener("touchmove", e => { if (!dragging) return; dx = e.touches[0].clientX - sx; slides.style.transform = `translateX(${-idx * slides.offsetWidth + dx}px)`; }, { passive: true }); slides.addEventListener("touchend", () => { if (!dragging) return; dragging = false; slides.style.transition = "transform 0.3s ease-out"; if (dx < -slides.offsetWidth * 0.2) go(idx + 1); else if (dx > slides.offsetWidth * 0.2) go(idx - 1); else go(idx); }, { passive: true }); }); }
 
 // ========== АВТОРИЗАЦИЯ ==========
+// ========== АВТОРИЗАЦИЯ (ПОЛНОСТЬЮ ИСПРАВЛЕНО) ==========
 function updateAuthUI() {
   const area = document.getElementById("authArea");
   if (!area) return;
   const banner = document.getElementById("saveBanner");
   
   if (isAuthed) {
-    // 1. Сначала вставляем HTML
+    // АДМИН
     area.innerHTML = `
       <button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button>
       <button class="btn btn-gold" id="addBtn">+ Добавить</button>
@@ -306,7 +307,7 @@ function updateAuthUI() {
       <button class="btn" id="saveBtnTop">💾 HTML</button>
       <button class="btn" id="logoutBtn">Выйти</button>`;
     
-    // 2. Потом навешиваем обработчики (с проверками)
+    // Навешиваем обработчики
     const addBtn = document.getElementById("addBtn");
     const githubBtnTop = document.getElementById("githubBtnTop");
     const excelBtnTop = document.getElementById("excelBtnTop");
@@ -322,20 +323,21 @@ function updateAuthUI() {
     if (saveBtnTop) saveBtnTop.onclick = saveToFile;
     if (logoutBtn) {
       logoutBtn.onclick = function() {
+        // Сначала меняем состояние
         isAuthed = false;
-        document.body.classList.remove("authed");
+        // Потом обновляем UI (уже как гость)
         updateAuthUI();
+        // Потом рендерим
         render();
       };
     }
     if (favBtnAuthed) favBtnAuthed.onclick = openFavModal;
     
-    // Включаем режим редактирования
     document.body.classList.add("authed");
     if (banner) banner.style.display = "block";
     
   } else {
-    // Гость
+    // ГОСТЬ
     area.innerHTML = `
       <button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count">${favorites.length}</span></button>
       <button class="btn" id="loginBtn">Войти</button>`;
@@ -346,7 +348,6 @@ function updateAuthUI() {
     if (loginBtn) loginBtn.onclick = function() { openModal("loginModal"); };
     if (favBtnGuest) favBtnGuest.onclick = openFavModal;
     
-    // Выключаем режим редактирования
     document.body.classList.remove("authed");
     if (banner) banner.style.display = "none";
   }
