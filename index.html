@@ -8,15 +8,15 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>TEMPUS KZ — Наручные часы | Кокшетау</title>
-<link rel="icon" type="image/png" href="favicon.png">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="icon" type="image/png" href="favicon.jpg">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 
 <header>
   <div class="nav">
     <div class="logo">
-      <img src="logo.png" alt="TEMPUS KZ" class="logo-icon">
+      <img src="logo.jpg" alt="TEMPUS KZ" class="logo-icon">
       <div class="logo-text">
         TEMPUS KZ
         <small>Наручные часы | Кокшетау</small>
@@ -68,9 +68,8 @@
 
 <main class="grid" id="grid"></main>
 
-<footer>
-  © 2026 TEMPUS KZ · Оффлайн-каталог · 
-  <a href="admin.html" style="color: #d4af37; text-decoration: none;">⚙️ Админ-панель</a>
+<footer id="mainFooter">
+  © 2026 TEMPUS KZ · Оффлайн-каталог
 </footer>
 
 <!-- Лайтбокс -->
@@ -88,13 +87,13 @@
   </div>
 </div>
 
-<!-- Модалки -->
+<!-- Модалка: Логин -->
 <div class="modal" id="loginModal">
   <div class="modal-box">
     <h2>Авторизация</h2>
     <div class="sub">Доступ для управления каталогом</div>
-    <div class="field"><label>Логин</label><input type="text" id="loginUser"></div>
-    <div class="field"><label>Пароль</label><input type="password" id="loginPass"></div>
+    <div class="field"><label>Логин</label><input type="text" id="loginUser" autocomplete="username"></div>
+    <div class="field"><label>Пароль</label><input type="password" id="loginPass" autocomplete="current-password"></div>
     <div class="err" id="loginErr"></div>
     <div class="actions">
       <button class="btn" id="closeLogin">Отмена</button>
@@ -103,6 +102,7 @@
   </div>
 </div>
 
+<!-- Модалка: Добавление -->
 <div class="modal" id="addModal">
   <div class="modal-box">
     <h2>Новая модель</h2>
@@ -132,6 +132,7 @@
   </div>
 </div>
 
+<!-- Модалка: Редактирование -->
 <div class="modal" id="editModal">
   <div class="modal-box">
     <h2>Редактировать модель</h2>
@@ -162,6 +163,24 @@
   </div>
 </div>
 
+<!-- Модалка: Настройки GitHub -->
+<div class="modal" id="githubModal">
+  <div class="modal-box">
+    <h2>Настройки GitHub</h2>
+    <div class="sub">Введите данные для автосохранения</div>
+    <div class="field"><label>Имя пользователя</label><input type="text" id="ghUser" placeholder="TempusKZ"></div>
+    <div class="field"><label>Репозиторий</label><input type="text" id="ghRepo" placeholder="Tempus_KZ"></div>
+    <div class="field"><label>Personal Access Token</label><input type="password" id="ghToken" placeholder="ghp_..."></div>
+    <div class="field"><label>Ветка</label><input type="text" id="ghBranch" value="main" placeholder="main"></div>
+    <div class="err" id="githubErr"></div>
+    <div class="actions">
+      <button class="btn" id="closeGithub">Отмена</button>
+      <button class="btn btn-gold" id="saveGithub">💾 Сохранить и отправить</button>
+    </div>
+  </div>
+</div>
+
+<!-- Модалка: Избранное -->
 <div class="modal" id="favModal">
   <div class="modal-box">
     <h2>❤️ Избранное</h2>
@@ -175,6 +194,6 @@
   </div>
 </div>
 
-<script src="script.js?v=4"></script>
+<script src="script.js?v=5"></script>
 </body>
 </html>
