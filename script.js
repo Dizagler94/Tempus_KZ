@@ -161,30 +161,129 @@ async function saveToFile() {
 }
 
 // ========== EXCEL ==========
+// ========== EXCEL (КРАСИВЫЙ CSV) ==========
 function downloadExcel() {
   const watches = loadWatchesSync();
   
-  // Формируем CSV (открывается в Excel)
-  let csv = '\uFEFF'; // BOM для русского языка
-  csv += 'Артикул;Название;Описание;Категория;Цена;Количество;Фото\n';
+  // Данные для таблицы
+  const rows = [];
   
+  // Заголовки
+  rows.push(['Артикул', 'Название', 'Описание', 'Категория', 'Цена (₸)', 'Количество', 'Наличие']);
+  
+  // Данные
   watches.forEach(w => {
-    const article = (w.article || '').replace(/;/g, ',');
-    const name = (w.name || '').replace(/;/g, ',');
-    const desc = (w.desc || '').replace(/;/g, ',');
-    const category = w.category === 'women' ? 'Женские' : 'Мужские';
-    const price = w.price || 0;
-    const qty = w.qty || 0;
-    const images = (w.images || []).join(', ');
+    const stock = w.qty > 3 ? 'В наличии' : w.qty > 0 ? 'Заканчивается' : 'Нет';
     
-    csv += `"${article}";"${name}";"${desc}";"${category}";${price};${qty};"${images}"\n`;
+    rows.push([
+      w.article || '',
+      w.name || '',
+      w.desc || '',
+      w.category === 'women' ? 'Женские' : 'Мужские',
+      w.price || 0,
+      w.qty || 0,
+      stock
+    ]);
   });
   
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  // Создаём XML для Excel (формат SpreadsheetML)
+  let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+  xml += '<?mso-application progid="Excel.Sheet"?>\n';
+  xml += '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n';
+  xml += ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n';
+  
+  // Стили
+  xml += '<Styles>\n';
+  xml += '  <Style ss:ID="Header">\n';
+  xml += '    <Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>\n';
+  xml += '    <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/></Borders>\n';
+  xml += '    <Font ss:FontName="Calibri" ss:Size="12" ss:Bold="1" ss:Color="#1a1a1a"/>\n';
+  xml += '    <Interior ss:Color="#d4af37" ss:Pattern="Solid"/>\n';
+  xml += '  </Style>\n';
+  xml += '  <Style ss:ID="Normal">\n';
+  xml += '    <Alignment ss:Vertical="Center" ss:WrapText="1"/>\n';
+  xml += '    <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e0e0e0"/></Borders>\n';
+  xml += '    <Font ss:FontName="Calibri" ss:Size="11"/>\n';
+  xml += '  </Style>\n';
+  xml += '  <Style ss:ID="Price">\n';
+  xml += '    <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>\n';
+  xml += '    <NumberFormat ss:Format="#,##0"/>\n';
+  xml += '    <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1"/>\n';
+  xml += '  </Style>\n';
+  xml += '  <Style ss:ID="Center">\n';
+  xml += '    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\n';
+  xml += '    <Font ss:FontName="Calibri" ss:Size="11"/>\n';
+  xml += '  </Style>\n';
+  xml += '  <Style ss:ID="InStock">\n';
+  xml += '    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\n';
+  xml += '    <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#2ecc71"/>\n';
+  xml += '  </Style>\n';
+  xml += '  <Style ss:ID="LowStock">\n';
+  xml += '    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\n';
+  xml += '    <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#e6b85c"/>\n';
+  xml += '  </Style>\n';
+  xml += '  <Style ss:ID="OutStock">\n';
+  xml += '    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\n';
+  xml += '    <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#e74c3c"/>\n';
+  xml += '  </Style>\n';
+  xml += '</Styles>\n';
+  
+  // Лист
+  xml += '<Worksheet ss:Name="Каталог часов">\n';
+  xml += '<Table>\n';
+  
+  // Колонки с шириной
+  xml += '<Column ss:Width="120"/>\n';  // Артикул
+  xml += '<Column ss:Width="200"/>\n';  // Название
+  xml += '<Column ss:Width="350"/>\n';  // Описание
+  xml += '<Column ss:Width="100"/>\n';  // Категория
+  xml += '<Column ss:Width="120"/>\n';  // Цена
+  xml += '<Column ss:Width="80"/>\n';   // Количество
+  xml += '<Column ss:Width="120"/>\n';  // Наличие
+  
+  rows.forEach((row, rowIdx) => {
+    xml += '<Row>\n';
+    row.forEach((cell, colIdx) => {
+      let style = 'Normal';
+      
+      if (rowIdx === 0) {
+        style = 'Header';
+      } else if (colIdx === 4) {
+        style = 'Price';
+      } else if (colIdx === 3 || colIdx === 5) {
+        style = 'Center';
+      } else if (colIdx === 6) {
+        if (cell === 'В наличии') style = 'InStock';
+        else if (cell === 'Заканчивается') style = 'LowStock';
+        else style = 'OutStock';
+      }
+      
+      // Экранируем XML
+      const safeCell = String(cell).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      
+      if (rowIdx === 0) {
+        xml += `<Cell ss:StyleID="${style}"><Data ss:Type="String">${safeCell}</Data></Cell>\n`;
+      } else if (colIdx === 4) {
+        xml += `<Cell ss:StyleID="${style}"><Data ss:Type="Number">${cell}</Data></Cell>\n`;
+      } else if (colIdx === 5) {
+        xml += `<Cell ss:StyleID="${style}"><Data ss:Type="Number">${cell}</Data></Cell>\n`;
+      } else {
+        xml += `<Cell ss:StyleID="${style}"><Data ss:Type="String">${safeCell}</Data></Cell>\n`;
+      }
+    });
+    xml += '</Row>\n';
+  });
+  
+  xml += '</Table>\n';
+  xml += '</Worksheet>\n';
+  xml += '</Workbook>';
+  
+  // Сохраняем как .xls (Excel откроет)
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'tempus_kz_catalog.csv';
+  a.download = 'tempus_kz_catalog.xls';
   a.click();
   URL.revokeObjectURL(url);
 }
