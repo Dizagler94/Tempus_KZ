@@ -541,7 +541,7 @@ function updateAuthUI() {
   const area = document.getElementById("authArea"); if (!area) return;
   
   if (isAuthed) {
-    area.innerHTML = `<button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn btn-gold" id="addBtn">+ Добавить</button><button class="btn btn-gold" id="githubBtnTop">🚀 На GitHub</button><button class="btn" id="excelBtnTop">📥 Excel</button><button class="btn" id="uploadExcelBtnTop">📤 Загрузить</button><button class="btn" id="saveBtnTop">💾 HTML</button><button class="btn" id="logoutBtn">Выйти</button>`;
+    area.innerHTML = `<button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn btn-gold" id="addBtn">+ Добавить</button><button class="btn btn-gold" id="githubBtnTop">🚀 СОХРАНИТЬ!!!</button><button class="btn" id="excelBtnTop">📥Сохранить Excel</button><button class="btn" id="uploadExcelBtnTop">📤 Загрузить свой Excel</button><button class="btn" id="logoutBtn">Выйти</button>`;
     const addBtn = document.getElementById("addBtn"); if (addBtn) addBtn.onclick = openAddModal;
     const ghBtn = document.getElementById("githubBtnTop"); if (ghBtn) ghBtn.onclick = saveToGithub;
     const exBtn = document.getElementById("excelBtnTop"); if (exBtn) exBtn.onclick = downloadExcel;
