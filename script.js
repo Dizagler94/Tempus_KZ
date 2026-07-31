@@ -1,14 +1,14 @@
 // ========== ОЧИСТКА КЕША ==========
 (function() {
-  const KEY = 'mdt_cache_v13';
+  const KEY = 'mdt_cache_v14';
   if (localStorage.getItem(KEY) === 'true') return;
-  console.log('🧹 v13 — очистка');
+  console.log('🧹 v14 — очистка');
   try {
     const favs = localStorage.getItem('mdt_favorites_v1');
-    const gh = localStorage.getItem('mdt_github_v13');
+    const gh = localStorage.getItem('mdt_github_v14');
     localStorage.clear();
     if (favs) localStorage.setItem('mdt_favorites_v1', favs);
-    if (gh) localStorage.setItem('mdt_github_v13', gh);
+    if (gh) localStorage.setItem('mdt_github_v14', gh);
     localStorage.setItem(KEY, 'true');
   } catch(e) {}
 })();
@@ -17,7 +17,7 @@
 const AUTH = { user: "anastasia_zy_zy", pass: "anastasia_zy_zy" };
 const LS_KEY = "mdt_watches_v2";
 const FAV_KEY = "mdt_favorites_v1";
-const GH_KEY = "mdt_github_v13";
+const GH_KEY = "mdt_github_v14";
 const DATA_URL = 'data.json';
 
 let canUseStorage = false;
@@ -142,7 +142,7 @@ async function compressFiles(files) {
   return r;
 }
 
-// ========== СОХРАНЕНИЕ В ФАЙЛ ==========
+// ========== СОХРАНЕНИЕ В HTML ==========
 async function saveToFile() {
   try {
     const watches = loadWatchesSync();
@@ -160,21 +160,15 @@ async function saveToFile() {
   } catch (e) { alert("Ошибка: " + e.message); }
 }
 
-// ========== EXCEL ==========
-// ========== EXCEL (КРАСИВЫЙ CSV) ==========
+// ========== EXCEL СКАЧИВАНИЕ ==========
 function downloadExcel() {
   const watches = loadWatchesSync();
   
-  // Данные для таблицы
   const rows = [];
-  
-  // Заголовки
   rows.push(['Артикул', 'Название', 'Описание', 'Категория', 'Цена (₸)', 'Количество', 'Наличие']);
   
-  // Данные
   watches.forEach(w => {
     const stock = w.qty > 3 ? 'В наличии' : w.qty > 0 ? 'Заканчивается' : 'Нет';
-    
     rows.push([
       w.article || '',
       w.name || '',
@@ -186,106 +180,183 @@ function downloadExcel() {
     ]);
   });
   
-  // Создаём XML для Excel (формат SpreadsheetML)
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
   xml += '<?mso-application progid="Excel.Sheet"?>\n';
   xml += '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n';
   xml += ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n';
   
-  // Стили
   xml += '<Styles>\n';
-  xml += '  <Style ss:ID="Header">\n';
-  xml += '    <Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/>\n';
-  xml += '    <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/></Borders>\n';
-  xml += '    <Font ss:FontName="Calibri" ss:Size="12" ss:Bold="1" ss:Color="#1a1a1a"/>\n';
-  xml += '    <Interior ss:Color="#d4af37" ss:Pattern="Solid"/>\n';
-  xml += '  </Style>\n';
-  xml += '  <Style ss:ID="Normal">\n';
-  xml += '    <Alignment ss:Vertical="Center" ss:WrapText="1"/>\n';
-  xml += '    <Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e0e0e0"/></Borders>\n';
-  xml += '    <Font ss:FontName="Calibri" ss:Size="11"/>\n';
-  xml += '  </Style>\n';
-  xml += '  <Style ss:ID="Price">\n';
-  xml += '    <Alignment ss:Horizontal="Right" ss:Vertical="Center"/>\n';
-  xml += '    <NumberFormat ss:Format="#,##0"/>\n';
-  xml += '    <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1"/>\n';
-  xml += '  </Style>\n';
-  xml += '  <Style ss:ID="Center">\n';
-  xml += '    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\n';
-  xml += '    <Font ss:FontName="Calibri" ss:Size="11"/>\n';
-  xml += '  </Style>\n';
-  xml += '  <Style ss:ID="InStock">\n';
-  xml += '    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\n';
-  xml += '    <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#2ecc71"/>\n';
-  xml += '  </Style>\n';
-  xml += '  <Style ss:ID="LowStock">\n';
-  xml += '    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\n';
-  xml += '    <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#e6b85c"/>\n';
-  xml += '  </Style>\n';
-  xml += '  <Style ss:ID="OutStock">\n';
-  xml += '    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>\n';
-  xml += '    <Font ss:FontName="Calibri" ss:Size="11" ss:Color="#e74c3c"/>\n';
-  xml += '  </Style>\n';
+  xml += '  <Style ss:ID="Header"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/></Borders><Font ss:FontName="Calibri" ss:Size="12" ss:Bold="1" ss:Color="#1a1a1a"/><Interior ss:Color="#d4af37" ss:Pattern="Solid"/></Style>\n';
+  xml += '  <Style ss:ID="Normal"><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e0e0e0"/></Borders><Font ss:FontName="Calibri" ss:Size="11"/></Style>\n';
+  xml += '  <Style ss:ID="Price"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><NumberFormat ss:Format="#,##0"/><Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1"/></Style>\n';
+  xml += '  <Style ss:ID="Center"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Calibri" ss:Size="11"/></Style>\n';
+  xml += '  <Style ss:ID="InStock"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Calibri" ss:Size="11" ss:Color="#2ecc71"/></Style>\n';
+  xml += '  <Style ss:ID="LowStock"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Calibri" ss:Size="11" ss:Color="#e6b85c"/></Style>\n';
+  xml += '  <Style ss:ID="OutStock"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Calibri" ss:Size="11" ss:Color="#e74c3c"/></Style>\n';
   xml += '</Styles>\n';
   
-  // Лист
-  xml += '<Worksheet ss:Name="Каталог часов">\n';
-  xml += '<Table>\n';
-  
-  // Колонки с шириной
-  xml += '<Column ss:Width="120"/>\n';  // Артикул
-  xml += '<Column ss:Width="200"/>\n';  // Название
-  xml += '<Column ss:Width="350"/>\n';  // Описание
-  xml += '<Column ss:Width="100"/>\n';  // Категория
-  xml += '<Column ss:Width="120"/>\n';  // Цена
-  xml += '<Column ss:Width="80"/>\n';   // Количество
-  xml += '<Column ss:Width="120"/>\n';  // Наличие
+  xml += '<Worksheet ss:Name="Каталог часов">\n<Table>\n';
+  xml += '<Column ss:Width="120"/><Column ss:Width="200"/><Column ss:Width="350"/><Column ss:Width="100"/><Column ss:Width="120"/><Column ss:Width="80"/><Column ss:Width="120"/>\n';
   
   rows.forEach((row, rowIdx) => {
     xml += '<Row>\n';
     row.forEach((cell, colIdx) => {
       let style = 'Normal';
-      
-      if (rowIdx === 0) {
-        style = 'Header';
-      } else if (colIdx === 4) {
-        style = 'Price';
-      } else if (colIdx === 3 || colIdx === 5) {
-        style = 'Center';
-      } else if (colIdx === 6) {
+      if (rowIdx === 0) style = 'Header';
+      else if (colIdx === 4) style = 'Price';
+      else if (colIdx === 3 || colIdx === 5) style = 'Center';
+      else if (colIdx === 6) {
         if (cell === 'В наличии') style = 'InStock';
         else if (cell === 'Заканчивается') style = 'LowStock';
         else style = 'OutStock';
       }
       
-      // Экранируем XML
-      const safeCell = String(cell).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      
-      if (rowIdx === 0) {
-        xml += `<Cell ss:StyleID="${style}"><Data ss:Type="String">${safeCell}</Data></Cell>\n`;
-      } else if (colIdx === 4) {
-        xml += `<Cell ss:StyleID="${style}"><Data ss:Type="Number">${cell}</Data></Cell>\n`;
-      } else if (colIdx === 5) {
-        xml += `<Cell ss:StyleID="${style}"><Data ss:Type="Number">${cell}</Data></Cell>\n`;
-      } else {
-        xml += `<Cell ss:StyleID="${style}"><Data ss:Type="String">${safeCell}</Data></Cell>\n`;
-      }
+      const safe = String(cell).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      const type = (rowIdx > 0 && (colIdx === 4 || colIdx === 5)) ? 'Number' : 'String';
+      xml += `<Cell ss:StyleID="${style}"><Data ss:Type="${type}">${safe}</Data></Cell>\n`;
     });
     xml += '</Row>\n';
   });
   
-  xml += '</Table>\n';
-  xml += '</Worksheet>\n';
-  xml += '</Workbook>';
+  xml += '</Table>\n</Worksheet>\n</Workbook>';
   
-  // Сохраняем как .xls (Excel откроет)
   const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = 'tempus_kz_catalog.xls';
-  a.click();
+  a.href = url; a.download = 'tempus_kz_catalog.xls'; a.click();
   URL.revokeObjectURL(url);
+}
+
+// ========== EXCEL ЗАГРУЗКА ==========
+function uploadExcel() {
+  document.getElementById("excelFileInput").click();
+}
+
+function handleExcelUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  
+  reader.onload = function(e) {
+    try {
+      const data = e.target.result;
+      let rows = [];
+      
+      if (data.includes('<?xml') || data.includes('<Workbook')) {
+        rows = parseXmlExcel(data);
+      } else {
+        rows = parseCSV(data);
+      }
+      
+      if (rows.length < 2) {
+        alert('❌ Файл пуст или не содержит данных');
+        return;
+      }
+      
+      const newWatches = [];
+      const existingWatches = loadWatchesSync();
+      let updatedCount = 0, addedCount = 0;
+      
+      for (let i = 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row[0] && !row[1]) continue;
+        
+        const article = String(row[0] || '').trim();
+        const name = String(row[1] || '').trim();
+        const desc = String(row[2] || '').trim();
+        const category = String(row[3] || '').toLowerCase().includes('жен') ? 'women' : 'men';
+        const price = parseInt(String(row[4] || '0').replace(/[^\d]/g, '')) || 0;
+        const qty = parseInt(String(row[5] || '0').replace(/[^\d]/g, '')) || 0;
+        
+        const existingIdx = existingWatches.findIndex(w => w.article === article && article !== '');
+        
+        if (existingIdx >= 0) {
+          existingWatches[existingIdx] = {
+            ...existingWatches[existingIdx],
+            name: name || existingWatches[existingIdx].name,
+            desc: desc || existingWatches[existingIdx].desc,
+            category,
+            price,
+            qty
+          };
+          updatedCount++;
+        } else {
+          newWatches.push({
+            article: article || ('TK-' + new Date().getFullYear() + '-' + String(Math.random()).substring(2, 6)),
+            name: name || 'Новая модель',
+            desc: desc || '',
+            category,
+            price,
+            qty,
+            images: []
+          });
+          addedCount++;
+        }
+      }
+      
+      const allWatches = [...existingWatches, ...newWatches];
+      saveWatches(allWatches);
+      render();
+      
+      alert(`✅ Готово!\n\n📝 Обновлено: ${updatedCount} моделей\n➕ Добавлено: ${addedCount} моделей\n📦 Всего: ${allWatches.length} моделей`);
+      
+    } catch (err) {
+      console.error('Ошибка:', err);
+      alert('❌ Ошибка чтения файла.\n\nСкачайте текущий каталог как образец (кнопка "📥 Скачать Excel").');
+    }
+  };
+  
+  reader.readAsText(file, 'UTF-8');
+  event.target.value = '';
+}
+
+function parseXmlExcel(xml) {
+  const rows = [];
+  const rowRegex = /<Row[^>]*>([\s\S]*?)<\/Row>/gi;
+  let rowMatch;
+  
+  while ((rowMatch = rowRegex.exec(xml)) !== null) {
+    const cells = [];
+    const cellRegex = /<Cell[^>]*>(?:<Data[^>]*>)?([\s\S]*?)(?:<\/Data>)?<\/Cell>/gi;
+    let cellMatch;
+    
+    while ((cellMatch = cellRegex.exec(rowMatch[1])) !== null) {
+      let value = cellMatch[1] || '';
+      value = value.replace(/<[^>]+>/g, '').trim();
+      value = value.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+      cells.push(value);
+    }
+    
+    if (cells.length > 0) rows.push(cells);
+  }
+  
+  return rows;
+}
+
+function parseCSV(csv) {
+  const rows = [];
+  const lines = csv.split(/\r?\n/);
+  
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    
+    const cells = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"') { inQuotes = !inQuotes; }
+      else if ((char === ';' || char === ',') && !inQuotes) { cells.push(current.trim()); current = ''; }
+      else { current += char; }
+    }
+    cells.push(current.trim());
+    
+    if (cells.length > 0) rows.push(cells);
+  }
+  
+  return rows;
 }
 
 // ========== GITHUB ==========
@@ -321,7 +392,7 @@ async function pushToGh(path, content) {
   
   if (!r.ok) {
     const err = await r.json().catch(() => ({}));
-    if (r.status === 401) throw new Error('Неверный токен. Создайте новый с правами repo.');
+    if (r.status === 401) throw new Error('Неверный токен');
     throw new Error(err.message || 'HTTP ' + r.status);
   }
 }
@@ -340,7 +411,7 @@ async function saveToGithub() {
     
     await pushToGh('data.json', JSON.stringify(watches, null, 2));
     await pushToGh('index.html', html);
-    alert('✅ Сохранено на GitHub!\n\nhttps://' + s.username + '.github.io/' + s.repo + '/');
+    alert('✅ Сохранено!\n\nhttps://' + s.username + '.github.io/' + s.repo + '/');
   } catch (e) { alert('❌ ' + e.message); }
 }
 
@@ -540,17 +611,17 @@ function updateAuthUI(){
       <button class="btn btn-gold" id="addBtn">+ Добавить</button>
       <button class="btn btn-gold" id="githubBtnTop">🚀 На GitHub</button>
       <button class="btn" id="excelBtnTop">📥 Excel</button>
+      <button class="btn" id="uploadExcelBtnTop">📤 Загрузить</button>
       <button class="btn" id="saveBtnTop">💾 HTML</button>
       <button class="btn" id="logoutBtn">Выйти</button>`;
     
     document.getElementById("addBtn").onclick=openAddModal;
     document.getElementById("githubBtnTop").onclick=saveToGithub;
     document.getElementById("excelBtnTop").onclick=downloadExcel;
+    document.getElementById("uploadExcelBtnTop").onclick=uploadExcel;
     document.getElementById("saveBtnTop").onclick=saveToFile;
     document.getElementById("logoutBtn").onclick=()=>{isAuthed=false;updateAuthUI();render();};
     document.getElementById("favBtnAuthed").onclick=openFavModal;
-    
-    // Показываем баннер
     document.getElementById("saveBanner").style.display="block";
   }else{
     area.innerHTML=`
@@ -696,6 +767,8 @@ function bindEvents(){
   
   document.getElementById("saveBtn").onclick=saveToFile;
   document.getElementById("excelBtn").onclick=downloadExcel;
+  document.getElementById("uploadExcelBtn").onclick=uploadExcel;
+  document.getElementById("excelFileInput").onchange=handleExcelUpload;
   document.getElementById("githubBtn").onclick=saveToGithub;
   
   document.getElementById("saveGithub").onclick=async function(){
@@ -706,10 +779,8 @@ function bindEvents(){
       token:document.getElementById("ghToken").value.trim(),
       branch:document.getElementById("ghBranch").value.trim()||"main"
     };
-    
     if(!settings.username||!settings.repo||!settings.token){err.textContent="Заполните все поля";return;}
     if(!settings.token.startsWith('ghp_')&&!settings.token.startsWith('github_pat_')){err.textContent="Токен должен начинаться с ghp_ или github_pat_";return;}
-    
     localStorage.setItem(GH_KEY,JSON.stringify(settings));
     err.textContent="";
     closeModal("githubModal");
@@ -742,6 +813,6 @@ function bindEvents(){
 }
 
 // ========== ЗАПУСК ==========
-console.log('🚀 TEMPUS KZ v13 — Excel + цена прибита к низу');
+console.log('🚀 TEMPUS KZ v14 — Excel загрузка/выгрузка');
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{bindEvents();initApp();});
 else{bindEvents();initApp();}
