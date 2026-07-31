@@ -1,6 +1,6 @@
 // ========== ЖЁСТКАЯ ОЧИСТКА КЕША + ПРИНУДИТЕЛЬНАЯ ПЕРЕЗАГРУЗКА ==========
 (function(){
-  const CURRENT_VERSION = '2.0.5';
+  const CURRENT_VERSION = '2.0.6';
   const VERSION_KEY = 'tempus_kz_ver';
   const RELOAD_KEY = 'tempus_kz_reloaded';
   
@@ -16,9 +16,7 @@
     sessionStorage.clear();
     
     if ('caches' in window) {
-      caches.keys().then(names => {
-        names.forEach(name => caches.delete(name));
-      });
+      caches.keys().then(names => names.forEach(name => caches.delete(name)));
     }
     
     document.cookie.split(";").forEach(c => {
@@ -26,9 +24,7 @@
     });
     
     if ('indexedDB' in window) {
-      indexedDB.databases().then(dbs => {
-        dbs.forEach(db => indexedDB.deleteDatabase(db.name));
-      }).catch(() => {});
+      indexedDB.databases().then(dbs => dbs.forEach(db => indexedDB.deleteDatabase(db.name))).catch(() => {});
     }
     
     if (favs) localStorage.setItem('mdt_favorites_v1', favs);
@@ -103,6 +99,35 @@ function migrateData(list) {
     }
     return w;
   });
+}
+
+// ========== КНОПКА ОЧИСТКИ КЕША ==========
+function hardReset() {
+  if (confirm('Полностью очистить кеш и перезагрузить страницу?\n\nИзбранное сохранится.')) {
+    const favs = localStorage.getItem('mdt_favorites_v1');
+    const github = localStorage.getItem('mdt_github_v17');
+    
+    localStorage.clear();
+    sessionStorage.clear();
+    
+    document.cookie.split(";").forEach(c => {
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
+    });
+    
+    if ('caches' in window) {
+      caches.keys().then(names => names.forEach(name => caches.delete(name)));
+    }
+    
+    if ('indexedDB' in window) {
+      indexedDB.databases().then(dbs => dbs.forEach(db => indexedDB.deleteDatabase(db.name))).catch(() => {});
+    }
+    
+    if (favs) localStorage.setItem('mdt_favorites_v1', favs);
+    if (github) localStorage.setItem('mdt_github_v17', github);
+    localStorage.setItem('tempus_kz_ver', '2.0.6');
+    
+    window.location.reload(true);
+  }
 }
 
 // ========== ИЗБРАННОЕ ==========
@@ -265,12 +290,7 @@ async function render() {
   if (!catalogData.length) await loadDataFromFile();
   const watches = getPageWatches(), allFiltered = getFilteredWatches();
   
-  // ВАЖНО: Принудительно устанавливаем класс authed при каждом рендере
-  if (isAuthed) {
-    document.body.classList.add("authed");
-  } else {
-    document.body.classList.remove("authed");
-  }
+  if (isAuthed) { document.body.classList.add("authed"); } else { document.body.classList.remove("authed"); }
   
   const info = document.getElementById("resultsInfo");
   if (info) info.innerHTML = (currentCategory !== "all" || priceFilterMin !== null || priceFilterMax !== null || searchQuery || sortOrder !== 'default') ? `Найдено: <b>${allFiltered.length}</b> (стр. ${currentPage}/${totalPages})` : `Всего: <b>${allFiltered.length}</b>`;
@@ -289,29 +309,28 @@ function initCardEvents() { document.querySelectorAll(".card").forEach(card => {
 // ========== СЛАЙДЕРЫ ==========
 function initSliders() { document.querySelectorAll("[data-slider]").forEach(slider => { const slides = slider.querySelector(".slides"), dots = slider.querySelectorAll(".slider-dot"), arrows = slider.querySelectorAll(".slider-arrow"); if (!slides || slides.children.length < 2) return; const total = slides.children.length; let idx = 0; let counter = slider.querySelector('.photo-counter'); if (!counter) { counter = document.createElement('div'); counter.className = 'photo-counter'; slider.appendChild(counter); } const go = n => { idx = (n + total) % total; if (idx < 0) idx = total - 1; slides.style.transform = `translateX(-${idx * 100}%)`; dots.forEach((d, k) => d.classList.toggle("active", k === idx)); counter.textContent = `${idx + 1}/${total}`; }; counter.textContent = `1/${total}`; arrows.forEach(a => a.onclick = e => { e.stopPropagation(); go(idx + parseInt(a.getAttribute("data-dir"))); }); dots.forEach((d, j) => d.onclick = e => { e.stopPropagation(); go(j); }); let sx = 0, dx = 0, dragging = false; slides.addEventListener("touchstart", e => { sx = e.touches[0].clientX; dx = 0; dragging = true; slides.style.transition = "none"; }, { passive: true }); slides.addEventListener("touchmove", e => { if (!dragging) return; dx = e.touches[0].clientX - sx; slides.style.transform = `translateX(${-idx * slides.offsetWidth + dx}px)`; }, { passive: true }); slides.addEventListener("touchend", () => { if (!dragging) return; dragging = false; slides.style.transition = "transform 0.3s ease-out"; if (dx < -slides.offsetWidth * 0.2) go(idx + 1); else if (dx > slides.offsetWidth * 0.2) go(idx - 1); else go(idx); }, { passive: true }); }); }
 
-// ========== АВТОРИЗАЦИЯ ==========
-// ========== АВТОРИЗАЦИЯ (ПОЛНОСТЬЮ ИСПРАВЛЕНО) ==========
+// ========== АВТОРИЗАЦИЯ (ИСПРАВЛЕНО) ==========
 function updateAuthUI() {
   const area = document.getElementById("authArea");
   if (!area) return;
   const banner = document.getElementById("saveBanner");
   
   if (isAuthed) {
-    // АДМИН
     area.innerHTML = `
       <button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button>
       <button class="btn btn-gold" id="addBtn">+ Добавить</button>
       <button class="btn btn-gold" id="githubBtnTop">🚀 СОХРАНИТЬ!!!</button>
       <button class="btn" id="excelBtnTop">📥Сохранить Excel</button>
-      <button class="btn" id="uploadExcelBtnTop">📤 Загрузить свой Excel</button>
+      <button class="btn" id="uploadExcelBtnTop">📤Загрузить свой Excel</button>
+      <button class="btn" id="hardResetBtn" style="background:#c0392b;color:#fff;border:1px solid #c0392b;">🧹 Сбросить/перезагрузить</button>
       <button class="btn" id="logoutBtn">Выйти</button>`;
     
-    // Навешиваем обработчики
     const addBtn = document.getElementById("addBtn");
     const githubBtnTop = document.getElementById("githubBtnTop");
     const excelBtnTop = document.getElementById("excelBtnTop");
     const uploadExcelBtnTop = document.getElementById("uploadExcelBtnTop");
     const saveBtnTop = document.getElementById("saveBtnTop");
+    const hardResetBtn = document.getElementById("hardResetBtn");
     const logoutBtn = document.getElementById("logoutBtn");
     const favBtnAuthed = document.getElementById("favBtnAuthed");
     
@@ -320,13 +339,12 @@ function updateAuthUI() {
     if (excelBtnTop) excelBtnTop.onclick = downloadExcel;
     if (uploadExcelBtnTop) uploadExcelBtnTop.onclick = uploadExcel;
     if (saveBtnTop) saveBtnTop.onclick = saveToFile;
+    if (hardResetBtn) hardResetBtn.onclick = hardReset;
     if (logoutBtn) {
       logoutBtn.onclick = function() {
-        // Сначала меняем состояние
         isAuthed = false;
-        // Потом обновляем UI (уже как гость)
+        document.body.classList.remove("authed");
         updateAuthUI();
-        // Потом рендерим
         render();
       };
     }
@@ -336,7 +354,6 @@ function updateAuthUI() {
     if (banner) banner.style.display = "block";
     
   } else {
-    // ГОСТЬ
     area.innerHTML = `
       <button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count">${favorites.length}</span></button>
       <button class="btn" id="loginBtn">Войти</button>`;
@@ -413,6 +430,8 @@ function bindEvents() {
   on("uploadExcelBtn", "onclick", uploadExcel);
   on("excelFileInput", "onchange", handleExcelUpload);
   on("githubBtn", "onclick", saveToGithub);
+  on("hardResetBtn", "onclick", hardReset);
+  on("hardResetBtn2", "onclick", hardReset);
   on("saveGithub", "onclick", async function() { const err = $("githubErr"); const u = $("ghUser"), r = $("ghRepo"), t = $("ghToken"), b = $("ghBranch"); if (!u || !r || !t || !b) return; const s = { username: u.value.trim(), repo: r.value.trim(), token: t.value.trim(), branch: b.value.trim() || "main" }; if (!s.username || !s.repo || !s.token) { if (err) err.textContent = "Заполните все поля"; return; } if (!s.token.startsWith('ghp_') && !s.token.startsWith('github_pat_')) { if (err) err.textContent = "Токен должен начинаться с ghp_ или github_pat_"; return; } localStorage.setItem(GH_KEY, JSON.stringify(s)); if (err) err.textContent = ""; closeModal("githubModal"); await saveToGithub(); });
   
   const catMenu = $("categoryMenu");
@@ -431,6 +450,6 @@ function bindEvents() {
 }
 
 // ========== ЗАПУСК ==========
-console.log('🚀 TEMPUS KZ v2.0.5 — класс authed исправлен');
+console.log('🚀 TEMPUS KZ v2.0.6 — кнопка сброса кеша');
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { bindEvents(); initApp(); });
 else { bindEvents(); initApp(); }
