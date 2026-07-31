@@ -1,32 +1,32 @@
 // ========== ОЧИСТКА КЕША ==========
 (function() {
-  const KEY = 'mdt_cache_v8';
+  const KEY = 'mdt_cache_v9';
   if (localStorage.getItem(KEY) === 'true') return;
+  console.log('🧹 Первый запуск v9 — очистка старых данных...');
   try {
     const favs = localStorage.getItem('mdt_favorites_v1');
-    const gh = localStorage.getItem('mdt_github_settings_v8');
+    const gh = localStorage.getItem('mdt_github_settings_v9');
     localStorage.clear();
     if (favs) localStorage.setItem('mdt_favorites_v1', favs);
-    if (gh) localStorage.setItem('mdt_github_settings_v8', gh);
+    if (gh) localStorage.setItem('mdt_github_settings_v9', gh);
     localStorage.setItem(KEY, 'true');
-  } catch(e) {}
+    console.log('✅ Очистка завершена');
+  } catch(e) { console.warn('Ошибка очистки:', e); }
 })();
 
 // ========== КОНСТАНТЫ ==========
 const AUTH = { user: "anastasia_zy_zy", pass: "anastasia_zy_zy" };
 const LS_KEY = "mdt_watches_v2";
 const FAV_KEY = "mdt_favorites_v1";
-const GITHUB_SETTINGS_KEY = "mdt_github_settings_v8";
-const AUTH_KEY = "mdt_admin_auth_v8";
+const GITHUB_SETTINGS_KEY = "mdt_github_settings_v9";
+const AUTH_KEY = "mdt_admin_auth_v9";
 const DATA_URL = 'data.json';
 
 let canUseStorage = false;
 try {
-  if (typeof window !== 'undefined' && window.localStorage) {
-    localStorage.setItem('__t', '1');
-    localStorage.removeItem('__t');
-    canUseStorage = true;
-  }
+  localStorage.setItem('__t', '1');
+  localStorage.removeItem('__t');
+  canUseStorage = true;
 } catch (e) {}
 
 let isAuthed = false;
@@ -44,10 +44,10 @@ async function loadDataFromFile() {
     if (r.ok) {
       catalogData = migrateData(await r.json());
       if (canUseStorage) localStorage.setItem(LS_KEY, JSON.stringify(catalogData));
-      console.log('📦 data.json загружен:', catalogData.length);
+      console.log('📦 data.json:', catalogData.length, 'моделей');
       return catalogData;
     }
-  } catch (e) { console.warn('data.json не загружен'); }
+  } catch (e) {}
   
   if (canUseStorage) {
     try {
@@ -72,10 +72,14 @@ function loadWatchesSync() { return catalogData; }
 // ========== ИЗБРАННОЕ ==========
 function loadFavorites() {
   if (!canUseStorage) return [];
-  try { return JSON.parse(localStorage.getItem(FAV_KEY) || "[]"); } catch (e) { return []; }
+  try {
+    const f = JSON.parse(localStorage.getItem(FAV_KEY) || "[]");
+    return f.filter(a => a && a.trim());
+  } catch (e) { return []; }
 }
 
 function saveFavorites() {
+  favorites = favorites.filter(a => a && a.trim());
   if (canUseStorage) localStorage.setItem(FAV_KEY, JSON.stringify(favorites));
   updateFavCount();
 }
@@ -89,9 +93,13 @@ function updateFavCount() {
   });
 }
 
-function isFav(article) { return favorites.includes(article); }
+function isFav(article) {
+  return article && article.trim() ? favorites.includes(article) : false;
+}
 
 function toggleFav(article) {
+  if (!article || !article.trim()) return;
+  
   const idx = favorites.indexOf(article);
   if (idx >= 0) favorites.splice(idx, 1);
   else favorites.push(article);
@@ -103,7 +111,7 @@ function toggleFav(article) {
     const active = isFav(article);
     btn.classList.toggle('active', active);
     btn.innerHTML = active ? '❤️' : '🤍';
-    btn.title = active ? 'Убрать из избранного' : 'В избранное';
+    btn.title = active ? 'Убрать' : 'В избранное';
     btn.classList.remove('animating');
     void btn.offsetWidth;
     btn.classList.add('animating');
@@ -113,9 +121,7 @@ function toggleFav(article) {
   if (card) card.classList.toggle('fav-active', isFav(article));
   
   updateFavCount();
-  
-  const favModal = document.getElementById("favModal");
-  if (favModal && favModal.classList.contains("open")) openFavModal();
+  if (document.getElementById("favModal")?.classList.contains("open")) openFavModal();
 }
 
 // ========== МИГРАЦИЯ ==========
@@ -137,8 +143,8 @@ function saveWatches(list) {
 }
 
 function updateSaveBanner() {
-  const banner = document.getElementById("saveBanner");
-  if (banner) banner.classList.toggle("show", hasUnsavedChanges && isAuthed);
+  const b = document.getElementById("saveBanner");
+  if (b) b.classList.toggle("show", hasUnsavedChanges && isAuthed);
 }
 
 // ========== ИЗОБРАЖЕНИЯ ==========
@@ -184,53 +190,35 @@ async function saveToFile() {
     a.href = url; a.download = "index.html"; a.click();
     URL.revokeObjectURL(url);
     hasUnsavedChanges = false; updateSaveBanner();
-    alert("✅ Файл скачан!");
+    alert("✅ Файл index.html скачан!");
   } catch (e) { alert("Ошибка: " + e.message); }
 }
 
-// ========== GITHUB API (ПОЛНОСТЬЮ ПЕРЕПИСАНО) ==========
+// ========== GITHUB API ==========
 function getGithubSettings() {
   try {
     const s = localStorage.getItem(GITHUB_SETTINGS_KEY);
     if (!s) return null;
     const settings = JSON.parse(s);
-    // Проверяем, что токен не пустой
-    if (!settings.token || settings.token.trim() === '') return null;
+    if (!settings.token || !settings.token.trim()) return null;
     return settings;
   } catch (e) { return null; }
 }
 
-function saveGithubSettingsToStorage(settings) {
-  localStorage.setItem(GITHUB_SETTINGS_KEY, JSON.stringify(settings));
-  console.log('✅ Настройки GitHub сохранены');
-}
-
-/**
- * Отправка ОДНОГО файла на GitHub
- */
 async function pushSingleFile(settings, path, content) {
   const token = settings.token.trim();
   const username = settings.username.trim();
   const repo = settings.repo.trim();
   const branch = settings.branch.trim() || 'main';
   
-  console.log(`📤 [${path}] Начинаю отправку...`);
-  console.log(`   Пользователь: ${username}`);
-  console.log(`   Репозиторий: ${repo}`);
-  console.log(`   Ветка: ${branch}`);
-  console.log(`   Токен: ${token.substring(0, 6)}...${token.substring(token.length - 4)}`);
+  console.log(`📤 [${path}] Отправка...`);
   
-  // Кодируем содержимое в base64
   const base64Content = btoa(unescape(encodeURIComponent(content)));
-  
   const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/${path}`;
   
-  // Шаг 1: Проверяем существование файла
   let sha = null;
   try {
-    console.log(`🔍 Проверяю существование ${path}...`);
     const checkResp = await fetch(`${apiUrl}?ref=${branch}`, {
-      method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/vnd.github.v3+json',
@@ -239,28 +227,24 @@ async function pushSingleFile(settings, path, content) {
     });
     
     if (checkResp.ok) {
-      const data = await checkResp.json();
-      sha = data.sha;
-      console.log(`✅ Файл ${path} существует, SHA: ${sha.substring(0, 7)}`);
+      sha = (await checkResp.json()).sha;
+      console.log(`📎 ${path} существует, SHA: ${sha.substring(0, 7)}`);
     } else if (checkResp.status === 404) {
-      console.log(`📄 Файл ${path} будет создан`);
-    } else {
-      const errText = await checkResp.text();
-      console.warn(`⚠️ Статус ${checkResp.status} при проверке ${path}:`, errText);
+      console.log(`📄 ${path} будет создан`);
+    } else if (checkResp.status === 401) {
+      throw new Error('Неверный токен. Создайте новый: https://github.com/settings/tokens (права repo)');
     }
   } catch (e) {
-    console.warn(`⚠️ Ошибка проверки ${path}:`, e.message);
+    if (e.message.includes('Неверный токен')) throw e;
+    console.warn(`⚠️ Проверка ${path}:`, e.message);
   }
   
-  // Шаг 2: Отправляем файл
   const body = {
     message: `Update ${path} [${new Date().toLocaleString('ru-RU')}]`,
     content: base64Content,
     branch: branch
   };
   if (sha) body.sha = sha;
-  
-  console.log(`🚀 PUT ${apiUrl}`);
   
   const putResp = await fetch(apiUrl, {
     method: 'PUT',
@@ -275,50 +259,32 @@ async function pushSingleFile(settings, path, content) {
   
   if (!putResp.ok) {
     const errData = await putResp.json().catch(() => ({}));
-    console.error(`❌ Ошибка ${putResp.status} при отправке ${path}:`, errData);
-    
     if (putResp.status === 401) {
-      throw new Error('Неверный токен. Проверьте:\n1. Токен не истёк\n2. Токен имеет права "repo"\n3. Токен скопирован полностью');
+      throw new Error('Неверный токен. Создайте новый с правами repo.');
     } else if (putResp.status === 404) {
-      throw new Error(`Репозиторий "${username}/${repo}" не найден. Проверьте имя пользователя и название репозитория.`);
-    } else if (putResp.status === 422) {
-      throw new Error('Ошибка валидации: ' + (errData.message || 'проверьте данные'));
-    } else {
-      throw new Error(errData.message || `HTTP ${putResp.status}`);
+      throw new Error(`Репозиторий "${username}/${repo}" не найден.`);
     }
+    throw new Error(errData.message || `HTTP ${putResp.status}`);
   }
   
-  const result = await putResp.json();
-  console.log(`✅ ${path} успешно отправлен!`);
-  console.log(`   URL: ${result.content?.html_url || 'готово'}`);
-  return result;
+  console.log(`✅ ${path} отправлен`);
 }
 
-/**
- * Главная функция сохранения на GitHub
- */
 async function saveToGithub() {
-  // 1. Получаем настройки
   const settings = getGithubSettings();
   
-  // 2. Если настроек нет — показываем модалку
-  if (!settings || !settings.username || !settings.repo || !settings.token) {
-    console.warn('⚠️ Нет настроек GitHub, открываю модалку');
+  if (!settings) {
     openModal("githubModal");
     return false;
   }
   
-  // 3. Показываем статус
-  const saveBanner = document.getElementById("saveBanner");
-  const bannerSpan = saveBanner ? saveBanner.querySelector('span') : null;
-  
-  if (bannerSpan) bannerSpan.innerHTML = '⏳ <b>Отправка на GitHub...</b>';
-  if (saveBanner) saveBanner.classList.add("show");
+  const banner = document.getElementById("saveBanner");
+  const span = banner?.querySelector('span');
+  if (span) span.innerHTML = '⏳ <b>Отправка на GitHub...</b>';
+  if (banner) banner.classList.add("show");
   
   try {
     const watches = loadWatchesSync();
-    
-    // 4. Формируем содержимое файлов
     const dataJsonContent = JSON.stringify(watches, null, 2);
     
     let indexHtml = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
@@ -327,53 +293,37 @@ async function saveToGithub() {
       `<script id="catalog-data" type="application\/json">${JSON.stringify(watches).replace(/<\//g, "<\\/")}<\/script>`
     );
     
-    // 5. Отправляем файлы
-    console.log('📦 Начинаю отправку файлов...');
-    console.log(`📊 data.json: ${dataJsonContent.length} символов`);
-    console.log(`📊 index.html: ${indexHtml.length} символов`);
-    
-    // Сначала data.json (меньше размер)
     await pushSingleFile(settings, 'data.json', dataJsonContent);
-    
-    // Потом index.html
     await pushSingleFile(settings, 'index.html', indexHtml);
     
-    // 6. Успех!
     hasUnsavedChanges = false;
     updateSaveBanner();
     
-    if (bannerSpan) {
-      bannerSpan.innerHTML = '✅ <b>Сохранено на GitHub!</b>';
-      setTimeout(() => { if (saveBanner) saveBanner.classList.remove("show"); }, 3000);
+    if (span) {
+      span.innerHTML = '✅ <b>Сохранено на GitHub!</b>';
+      setTimeout(() => banner.classList.remove("show"), 3000);
     }
     
-    const siteUrl = `https://${settings.username}.github.io/${settings.repo}/`;
-    console.log('🎉 Готово! Сайт:', siteUrl);
-    alert('✅ Файлы обновлены на GitHub!\n\nСайт обновится через 1-2 минуты:\n' + siteUrl);
+    alert('✅ Сохранено!\n\nhttps://' + settings.username + '.github.io/' + settings.repo + '/');
     return true;
-    
   } catch (e) {
-    console.error('❌ КРИТИЧЕСКАЯ ОШИБКА:', e.message);
-    
-    if (bannerSpan) {
-      bannerSpan.innerHTML = '❌ <b>Ошибка: ' + e.message + '</b>';
-      setTimeout(() => { if (saveBanner) saveBanner.classList.remove("show"); }, 5000);
+    console.error('❌', e.message);
+    if (span) {
+      span.innerHTML = '❌ <b>' + e.message + '</b>';
+      setTimeout(() => banner.classList.remove("show"), 5000);
     }
-    
-    alert('❌ Ошибка сохранения на GitHub:\n\n' + e.message + 
-          '\n\n📋 Инструкция:\n' +
-          '1. Зайдите на https://github.com/settings/tokens\n' +
-          '2. Нажмите "Generate new token (classic)"\n' +
-          '3. Поставьте галочку "repo"\n' +
-          '4. Скопируйте токен (начинается с ghp_)\n' +
-          '5. Вставьте в поле "Personal Access Token"');
+    alert('❌ ' + e.message);
     return false;
   }
 }
 
-// Совместимость
-function updateGithub() {
-  return saveToGithub();
+// ========== ЭКСТРЕННАЯ ОЧИСТКА ==========
+function resetAllCache() {
+  if (confirm('Сбросить ВСЕ данные?')) {
+    localStorage.clear();
+    sessionStorage.clear();
+    location.reload();
+  }
 }
 
 // ========== ФОРМАТИРОВАНИЕ ==========
@@ -396,18 +346,18 @@ function escapeHtml(s) {
 }
 
 function getFilteredWatches() {
-  let watches = loadWatchesSync();
-  if (currentCategory !== "all") watches = watches.filter(w => w.category === currentCategory);
-  if (priceFilterMin !== null) watches = watches.filter(w => w.price >= priceFilterMin);
-  if (priceFilterMax !== null) watches = watches.filter(w => w.price <= priceFilterMax);
-  return watches;
+  let w = loadWatchesSync();
+  if (currentCategory !== "all") w = w.filter(x => x.category === currentCategory);
+  if (priceFilterMin !== null) w = w.filter(x => x.price >= priceFilterMin);
+  if (priceFilterMax !== null) w = w.filter(x => x.price <= priceFilterMax);
+  return w;
 }
 
 // ========== ЛАЙТБОКС ==========
 let lbImages = [], lbIdx = 0, lbArticle = "", lbPrice = "";
 
 function openLightbox(images, article, price, startIdx) {
-  if (!images || !images.length) return;
+  if (!images?.length) return;
   lbImages = images; lbIdx = startIdx || 0; lbArticle = article || ""; lbPrice = price || "";
   renderLightbox();
   document.getElementById("lightbox").classList.add("open");
@@ -430,7 +380,7 @@ function renderLightbox() {
     dots.style.display = "flex";
     document.getElementById("lightboxPrev").style.display = "flex";
     document.getElementById("lightboxNext").style.display = "flex";
-    dots.querySelectorAll(".lightbox-dot").forEach(d => { d.onclick = function() { lbIdx = +this.getAttribute("data-k"); renderLightbox(); }; });
+    dots.querySelectorAll(".lightbox-dot").forEach(d => d.onclick = () => { lbIdx = +d.getAttribute("data-k"); renderLightbox(); });
   } else {
     dots.style.display = "none";
     document.getElementById("lightboxPrev").style.display = "none";
@@ -442,8 +392,8 @@ function lbPrev() { lbIdx = (lbIdx - 1 + lbImages.length) % lbImages.length; ren
 function lbNext() { lbIdx = (lbIdx + 1) % lbImages.length; renderLightbox(); }
 
 // ========== МОДАЛКИ ==========
-function openModal(id) { const m = document.getElementById(id); if (m) m.classList.add("open"); }
-function closeModal(id) { const m = document.getElementById(id); if (m) m.classList.remove("open"); }
+function openModal(id) { document.getElementById(id)?.classList.add("open"); }
+function closeModal(id) { document.getElementById(id)?.classList.remove("open"); }
 
 // ========== ИЗБРАННОЕ МОДАЛКА ==========
 function openFavModal() {
@@ -461,7 +411,7 @@ function openFavModal() {
     const w = all.find(x => x.article === article);
     if (w) {
       arts.push(w.article);
-      const img = w.images && w.images[0] ? `<img src="${w.images[0]}" alt="">` : placeholderSVG();
+      const img = w.images?.[0] ? `<img src="${w.images[0]}" alt="">` : placeholderSVG();
       html += `<div class="fav-item"><div class="fav-item-img">${img}</div><div class="fav-item-info"><div class="fav-item-article">${escapeHtml(w.article)}</div><div class="fav-item-desc">${escapeHtml(w.name || w.desc)}</div><div class="fav-item-price">${fmtPrice(w.price)}</div></div><button class="fav-remove" data-article="${escapeHtml(w.article)}">×</button></div>`;
     }
   });
@@ -469,13 +419,13 @@ function openFavModal() {
   list.innerHTML = html;
   copyArea.textContent = arts.join(", ");
   copyArea.style.display = "block"; copyBtn.style.display = "inline-block";
-  list.querySelectorAll(".fav-remove").forEach(b => { b.onclick = function() { toggleFav(this.getAttribute("data-article")); }; });
+  list.querySelectorAll(".fav-remove").forEach(b => b.onclick = () => toggleFav(b.getAttribute("data-article")));
   openModal("favModal");
 }
 
 function fallbackCopy(text) {
   const ta = document.createElement("textarea");
-  ta.value = text; ta.style.position = "fixed"; ta.style.left = "-9999px";
+  ta.value = text; ta.style.cssText = "position:fixed;left:-9999px";
   document.body.appendChild(ta); ta.select();
   try { document.execCommand("copy"); } catch (e) {}
   document.body.removeChild(ta);
@@ -501,17 +451,17 @@ async function render() {
   watches.forEach((w, i) => {
     const s = stockInfo(w.qty), images = w.images || [], multi = images.length > 1;
     const article = w.article || "", favActive = isFav(article);
-    const sliderContent = images.length ? images.map(src => `<div class="slide"><img src="${src}" alt="" draggable="false"></div>`).join("") : `<div class="placeholder">${placeholderSVG()}</div>`;
-    const dots = multi ? `<div class="slider-dots">${images.map((_, k) => `<button class="slider-dot${k === 0 ? ' active' : ''}" data-k="${k}"></button>`).join("")}</div>` : "";
+    const sc = images.length ? images.map(src => `<div class="slide"><img src="${src}" alt="" draggable="false"></div>`).join("") : `<div class="placeholder">${placeholderSVG()}</div>`;
+    const dots = multi ? `<div class="slider-dots">${images.map((_, k) => `<button class="slider-dot${k===0?' active':''}" data-k="${k}"></button>`).join("")}</div>` : "";
     const arrows = multi ? `<button class="slider-arrow prev" data-dir="-1">‹</button><button class="slider-arrow next" data-dir="1">›</button>` : "";
     
-    html += `<article class="card${favActive ? ' fav-active' : ''}" data-article="${escapeHtml(article)}">
-      <button class="fav-btn${favActive ? ' active' : ''}" data-fav="${escapeHtml(article)}">${favActive ? '❤️' : '🤍'}</button>
+    html += `<article class="card${favActive?' fav-active':''}" data-article="${escapeHtml(article)}">
+      <button class="fav-btn${favActive?' active':''}" data-fav="${escapeHtml(article)}">${favActive?'❤️':'🤍'}</button>
       <div class="card-actions"><button class="icon-btn edit" data-edit-article="${escapeHtml(article)}">✎</button><button class="icon-btn del" data-del-article="${escapeHtml(article)}">✕</button></div>
-      <div class="slider${multi ? ' has-multi' : ''}" data-slider="${i}"><div class="slides">${sliderContent}</div>${arrows}${dots}</div>
+      <div class="slider${multi?' has-multi':''}" data-slider="${i}"><div class="slides">${sc}</div>${arrows}${dots}</div>
       <div class="body">
-        ${article ? `<div class="article">Артикул: ${escapeHtml(article)}</div>` : ''}
-        ${w.name ? `<p class="name">${escapeHtml(w.name)}</p>` : ''}
+        ${article?`<div class="article">Артикул: ${escapeHtml(article)}</div>`:''}
+        ${w.name?`<p class="name">${escapeHtml(w.name)}</p>`:''}
         <p class="desc">${escapeHtml(w.desc)}</p>
         <div class="price">${fmtPrice(w.price)}</div>
         <div class="stock ${s.cls}">${s.text}</div>
@@ -527,13 +477,10 @@ async function render() {
 }
 
 function updateFooter() {
-  const footer = document.getElementById("mainFooter");
-  if (!footer) return;
-  if (isAuthed) {
-    footer.innerHTML = `© 2026 TEMPUS KZ · Оффлайн-каталог · <a href="admin.html" style="color:#d4af37;text-decoration:none;">⚙️ Админ-панель</a>`;
-  } else {
-    footer.innerHTML = `© 2026 TEMPUS KZ · Оффлайн-каталог`;
-  }
+  const f = document.getElementById("mainFooter");
+  if (!f) return;
+  f.innerHTML = isAuthed ? `© 2026 TEMPUS KZ · Оффлайн-каталог · <a href="admin.html" style="color:#d4af37;text-decoration:none;">⚙️ Админ-панель</a>` : `© 2026 TEMPUS KZ · Оффлайн-каталог`;
+  document.getElementById("resetCacheArea").style.display = isAuthed ? 'block' : 'none';
 }
 
 // ========== КАРТОЧКИ ==========
@@ -542,13 +489,13 @@ function initCardEvents() {
     card.onclick = function(e) {
       if (e.target.closest(".fav-btn,.icon-btn,.slider-arrow,.slider-dot")) return;
       const w = loadWatchesSync().find(w => w.article === this.getAttribute("data-article"));
-      if (w && w.images && w.images.length) openLightbox(w.images, w.article, fmtPrice(w.price), 0);
+      if (w?.images?.length) openLightbox(w.images, w.article, fmtPrice(w.price), 0);
     };
   });
   
-  document.querySelectorAll(".fav-btn").forEach(b => { b.onclick = function(e) { e.stopPropagation(); e.preventDefault(); toggleFav(this.getAttribute("data-fav")); return false; }; });
-  document.querySelectorAll("[data-edit-article]").forEach(b => { b.onclick = function(e) { e.stopPropagation(); const i = loadWatchesSync().findIndex(w => w.article === this.getAttribute("data-edit-article")); if (i >= 0) openEdit(i); }; });
-  document.querySelectorAll("[data-del-article]").forEach(b => { b.onclick = function(e) { e.stopPropagation(); if (confirm("Удалить?")) { const list = loadWatchesSync(); const i = list.findIndex(w => w.article === this.getAttribute("data-del-article")); if (i >= 0) { list.splice(i, 1); saveWatches(list); render(); } } }; });
+  document.querySelectorAll(".fav-btn").forEach(b => b.onclick = function(e) { e.stopPropagation(); e.preventDefault(); toggleFav(this.getAttribute("data-fav")); return false; });
+  document.querySelectorAll("[data-edit-article]").forEach(b => b.onclick = function(e) { e.stopPropagation(); const i = loadWatchesSync().findIndex(w => w.article === this.getAttribute("data-edit-article")); if (i >= 0) openEdit(i); });
+  document.querySelectorAll("[data-del-article]").forEach(b => b.onclick = function(e) { e.stopPropagation(); if (confirm("Удалить?")) { const list = loadWatchesSync(); const i = list.findIndex(w => w.article === this.getAttribute("data-del-article")); if (i >= 0) { list.splice(i, 1); saveWatches(list); render(); } } });
 }
 
 // ========== СЛАЙДЕРЫ ==========
@@ -558,9 +505,9 @@ function initSliders() {
     if (!slides || slides.children.length < 2) return;
     const total = slides.children.length;
     let idx = 0;
-    function go(n) { idx = (n + total) % total; if (idx < 0) idx = total - 1; slides.style.transform = `translateX(-${idx * 100}%)`; dots.forEach((d, k) => d.classList.toggle("active", k === idx)); }
-    arrows.forEach(a => a.onclick = function(e) { e.stopPropagation(); go(idx + parseInt(this.getAttribute("data-dir"))); });
-    dots.forEach((d, j) => d.onclick = function(e) { e.stopPropagation(); go(j); });
+    const go = n => { idx = (n + total) % total; if (idx < 0) idx = total - 1; slides.style.transform = `translateX(-${idx * 100}%)`; dots.forEach((d, k) => d.classList.toggle("active", k === idx)); };
+    arrows.forEach(a => a.onclick = e => { e.stopPropagation(); go(idx + parseInt(a.getAttribute("data-dir"))); });
+    dots.forEach((d, j) => d.onclick = e => { e.stopPropagation(); go(j); });
     
     let sx = 0, dx = 0, dragging = false;
     slides.addEventListener("touchstart", e => { sx = e.touches[0].clientX; dx = 0; dragging = true; slides.style.transition = "none"; }, { passive: true });
@@ -596,7 +543,7 @@ let pendingAddImages = [];
 function openAddModal() {
   pendingAddImages = [];
   document.getElementById("fCategory").value = "men";
-  ["fArticle","fName","fDesc","fPrice","fQty","fImgFile"].forEach(id => document.getElementById(id).value = "");
+  "fArticle fName fDesc fPrice fQty fImgFile".split(" ").forEach(id => document.getElementById(id).value = "");
   document.getElementById("addErr").textContent = "";
   renderAddThumbs();
   openModal("addModal");
@@ -606,7 +553,7 @@ function renderAddThumbs() {
   const box = document.getElementById("addThumbs");
   if (!box) return;
   box.innerHTML = pendingAddImages.map((s, k) => `<div class="thumb-item"><img src="${s}"><button class="thumb-remove" data-k="${k}">×</button></div>`).join("");
-  box.querySelectorAll(".thumb-remove").forEach(b => b.onclick = function() { pendingAddImages.splice(+this.getAttribute("data-k"), 1); renderAddThumbs(); });
+  box.querySelectorAll(".thumb-remove").forEach(b => b.onclick = () => { pendingAddImages.splice(+b.getAttribute("data-k"), 1); renderAddThumbs(); });
 }
 
 let editingIndex = -1, editExisting = [], editNew = [];
@@ -614,13 +561,9 @@ let editingIndex = -1, editExisting = [], editNew = [];
 function openEdit(i) {
   const w = loadWatchesSync()[i];
   if (!w) return;
-  editingIndex = i;
-  editExisting = (w.images || []).slice();
-  editNew = [];
+  editingIndex = i; editExisting = (w.images || []).slice(); editNew = [];
   document.getElementById("eCategory").value = w.category || "men";
-  document.getElementById("eArticle").value = w.article || "";
-  document.getElementById("eName").value = w.name || "";
-  document.getElementById("eDesc").value = w.desc || "";
+  "eArticle eName eDesc".split(" ").forEach(id => document.getElementById(id).value = w[id.replace('e','').toLowerCase()] || "");
   document.getElementById("ePrice").value = w.price;
   document.getElementById("eQty").value = w.qty;
   document.getElementById("eImgFile").value = "";
@@ -634,22 +577,22 @@ function renderEditThumbs() {
   if (!box) return;
   if (!editExisting.length) { box.innerHTML = `<div style="color:#8a8a94;font-size:12px">Нет фото</div>`; return; }
   box.innerHTML = editExisting.map((s, k) => `<div class="thumb-item"><img src="${s}"><button class="thumb-remove" data-k="${k}">×</button></div>`).join("");
-  box.querySelectorAll(".thumb-remove").forEach(b => b.onclick = function() { editExisting.splice(+this.getAttribute("data-k"), 1); renderEditThumbs(); });
+  box.querySelectorAll(".thumb-remove").forEach(b => b.onclick = () => { editExisting.splice(+b.getAttribute("data-k"), 1); renderEditThumbs(); });
 }
 
 function renderEditNewThumbs() {
   const box = document.getElementById("editNewThumbs");
   if (!box) return;
   box.innerHTML = editNew.map((s, k) => `<div class="thumb-item"><img src="${s}"><button class="thumb-remove" data-k="${k}">×</button></div>`).join("");
-  box.querySelectorAll(".thumb-remove").forEach(b => b.onclick = function() { editNew.splice(+this.getAttribute("data-k"), 1); renderEditNewThumbs(); });
+  box.querySelectorAll(".thumb-remove").forEach(b => b.onclick = () => { editNew.splice(+b.getAttribute("data-k"), 1); renderEditNewThumbs(); });
 }
 
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
 async function initApp() {
   isAuthed = false;
   sessionStorage.removeItem(AUTH_KEY);
-  if (canUseStorage) { try { localStorage.removeItem('mdt_authed'); } catch (e) {} }
   favorites = loadFavorites();
+  saveFavorites(); // чистим пустые
   updateAuthUI();
   updateSaveBanner();
   await render();
@@ -675,11 +618,9 @@ function bindEvents() {
   
   document.getElementById("doLogin").onclick = function() {
     const err = document.getElementById("loginErr"); err.textContent = "";
-    const u = document.getElementById("loginUser").value.trim();
-    const p = document.getElementById("loginPass").value;
-    if (u === AUTH.user && p === AUTH.pass) {
+    if (document.getElementById("loginUser").value.trim() === AUTH.user && document.getElementById("loginPass").value === AUTH.pass) {
       isAuthed = true;
-      sessionStorage.setItem(AUTH_KEY, JSON.stringify({ user: u, timestamp: Date.now() }));
+      sessionStorage.setItem(AUTH_KEY, JSON.stringify({ user: AUTH.user, timestamp: Date.now() }));
       closeModal("loginModal");
       document.getElementById("loginUser").value = "";
       document.getElementById("loginPass").value = "";
@@ -729,11 +670,9 @@ function bindEvents() {
     saveWatches(list); closeModal("editModal"); render();
   };
   
-  // Кнопки сохранения
   document.getElementById("saveBtn").onclick = saveToFile;
   document.getElementById("githubBtn").onclick = saveToGithub;
   
-  // Сохранение настроек GitHub из модалки
   document.getElementById("saveGithub").onclick = async function() {
     const err = document.getElementById("githubErr");
     const settings = {
@@ -748,18 +687,14 @@ function bindEvents() {
       return;
     }
     
-    // Проверяем формат токена
     if (!settings.token.startsWith('ghp_') && !settings.token.startsWith('github_pat_')) {
       err.textContent = "Токен должен начинаться с ghp_ или github_pat_";
       return;
     }
     
-    // Сохраняем настройки
-    saveGithubSettingsToStorage(settings);
+    localStorage.setItem(GITHUB_SETTINGS_KEY, JSON.stringify(settings));
     err.textContent = "";
     closeModal("githubModal");
-    
-    // Сразу пробуем отправить
     await saveToGithub();
   };
   
@@ -779,7 +714,6 @@ function bindEvents() {
     priceFilterMin = null; priceFilterMax = null; render();
   };
   
-  // Заполняем сохранённые настройки GitHub
   const gs = getGithubSettings();
   if (gs) {
     document.getElementById("ghUser").value = gs.username || "";
@@ -790,7 +724,6 @@ function bindEvents() {
 }
 
 // ========== ЗАПУСК ==========
-console.log('🚀 TEMPUS KZ v8 запущен');
-console.log('💡 Для отладки GitHub смотрите логи ниже');
+console.log('🚀 TEMPUS KZ v9');
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { bindEvents(); initApp(); });
 else { bindEvents(); initApp(); }
