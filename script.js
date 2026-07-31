@@ -240,11 +240,91 @@ function handleExcelUpload(event) {
 function parseXmlExcel(xml) { const rows = []; const rr = /<Row[^>]*>([\s\S]*?)<\/Row>/gi; let rm; while ((rm = rr.exec(xml)) !== null) { const cells = []; const cr = /<Cell[^>]*>(?:<Data[^>]*>)?([\s\S]*?)(?:<\/Data>)?<\/Cell>/gi; let cm; while ((cm = cr.exec(rm[1])) !== null) { let v = (cm[1] || '').replace(/<[^>]+>/g, '').trim(); v = v.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"'); cells.push(v); } if (cells.length) rows.push(cells); } return rows; }
 function parseCSV(csv) { const rows = []; csv.split(/\r?\n/).forEach(line => { if (!line.trim()) return; const cells = []; let cur = '', inQ = false; for (const ch of line) { if (ch === '"') inQ = !inQ; else if ((ch === ';' || ch === ',') && !inQ) { cells.push(cur.trim()); cur = ''; } else cur += ch; } cells.push(cur.trim()); if (cells.length) rows.push(cells); }); return rows; }
 
-// ========== GITHUB ==========
-function getGhSettings() { try { const s = localStorage.getItem(GH_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
-async function pushToGh(path, content) { const s = getGhSettings(); if (!s?.token?.trim()) throw new Error('Настройте GitHub'); const token = s.token.trim(), apiUrl = `https://api.github.com/repos/${s.username}/${s.repo}/contents/${path}`; const encoded = btoa(unescape(encodeURIComponent(content))); let sha = null; try { const r = await fetch(apiUrl + '?ref=' + (s.branch || 'main'), { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'X-GitHub-Api-Version': '2022-11-28' } }); if (r.ok) sha = (await r.json()).sha; else if (r.status === 401) throw new Error('Неверный токен'); } catch (e) { if (e.message === 'Неверный токен') throw e; } const body = { message: `Update ${path}`, content: encoded, branch: s.branch || 'main' }; if (sha) body.sha = sha; const r = await fetch(apiUrl, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' }, body: JSON.stringify(body) }); if (!r.ok) { const err = await r.json().catch(() => ({})); if (r.status === 401) throw new Error('Неверный токен'); throw new Error(err.message || 'HTTP ' + r.status); } }
-async function saveToGithub() { const s = getGhSettings(); if (!s?.token?.trim()) { openModal("githubModal"); return; } try { const watches = loadWatchesSync(); const dataJsonContent = JSON.stringify(watches, null, 2); let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML; html = html.replace(/<script id="catalog-data" type="application\/json">[\s\S]*?<\/script>/, `<script id="catalog-data" type="application\/json">${JSON.stringify(watches).replace(/<\//g, "<\\/")}<\/script>`); await pushToGh('data.json', dataJsonContent); await pushToGh('index.html', html); alert('✅ Сохранено!\n\nhttps://' + s.username + '.github.io/' + s.repo + '/'); } catch (e) { alert('❌ ' + e.message); } }
 
+// ========== GITHUB (ИСПРАВЛЕНО — SHA) ==========
+async function pushToGh(path, content) {
+  const s = getGhSettings();
+  if (!s?.token?.trim()) throw new Error('Настройте GitHub');
+  
+  const token = s.token.trim();
+  const apiUrl = `https://api.github.com/repos/${s.username}/${s.repo}/contents/${path}`;
+  const encoded = btoa(unescape(encodeURIComponent(content)));
+  
+  console.log(`📤 Отправка ${path}...`);
+  
+  // 1. Всегда получаем актуальный SHA с сервера
+  let sha = null;
+  try {
+    const response = await fetch(apiUrl + '?ref=' + (s.branch || 'main'), {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Cache-Control': 'no-cache'
+      }
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      sha = data.sha;
+      console.log(`✅ Текущий SHA для ${path}: ${sha.substring(0, 7)}`);
+    } else if (response.status === 404) {
+      console.log(`📄 Файл ${path} будет создан (не найден)`);
+    } else if (response.status === 401) {
+      throw new Error('Неверный токен. Проверьте права доступа (нужно repo).');
+    } else {
+      const errData = await response.json().catch(() => ({}));
+      console.warn(`⚠️ Статус ${response.status}:`, errData.message || '');
+    }
+  } catch (e) {
+    if (e.message.includes('Неверный токен')) throw e;
+    console.warn(`⚠️ Ошибка получения SHA для ${path}:`, e.message);
+  }
+  
+  // 2. Отправляем файл
+  const body = {
+    message: `Update ${path} [${new Date().toLocaleString('ru-RU')}]`,
+    content: encoded,
+    branch: s.branch || 'main'
+  };
+  
+  // Добавляем SHA только если файл существует
+  if (sha) {
+    body.sha = sha;
+    console.log(`🔑 Использую SHA: ${sha.substring(0, 7)}`);
+  }
+  
+  const putResponse = await fetch(apiUrl, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    },
+    body: JSON.stringify(body)
+  });
+  
+  if (!putResponse.ok) {
+    const errData = await putResponse.json().catch(() => ({}));
+    console.error(`❌ Ошибка ${putResponse.status}:`, errData);
+    
+    if (putResponse.status === 401) {
+      throw new Error('Неверный токен. Создайте новый с правами repo.');
+    } else if (putResponse.status === 422) {
+      throw new Error('Ошибка валидации. Возможно, файл слишком большой.');
+    } else if (putResponse.status === 409) {
+      throw new Error('Конфликт версий. Попробуйте ещё раз (SHA обновится).');
+    } else {
+      throw new Error(errData.message || `HTTP ${putResponse.status}`);
+    }
+  }
+  
+  const result = await putResponse.json();
+  console.log(`✅ ${path} успешно отправлен! Новый SHA: ${result.content.sha.substring(0, 7)}`);
+  return result;
+}
 // ========== ФОРМАТИРОВАНИЕ ==========
 function fmtPrice(n) { return Number(n).toLocaleString("ru-RU") + " ₸"; }
 function stockInfo(qty) { const q = Number(qty); if (!q) return { cls: "out", text: "Нет в наличии" }; if (q <= 3) return { cls: "low", text: `В наличии: ${q} шт.` }; return { cls: "in", text: `В наличии: ${q} шт.` }; }
