@@ -1,6 +1,6 @@
 // ========== ЖЁСТКАЯ ОЧИСТКА КЕША + ПРИНУДИТЕЛЬНАЯ ПЕРЕЗАГРУЗКА ==========
 (function(){
-  const CURRENT_VERSION = '2.0.4';
+  const CURRENT_VERSION = '2.0.5';
   const VERSION_KEY = 'tempus_kz_ver';
   const RELOAD_KEY = 'tempus_kz_reloaded';
   
@@ -93,12 +93,14 @@ function loadFromEmbedded() {
 function loadWatchesSync() { return catalogData; }
 
 function migrateData(list) {
-  return list.map(w => {
+  return list.map((w, index) => {
     if (!w.images) { w.images = w.img ? [w.img] : []; delete w.img; }
     if (!w.category) w.category = "men";
     if (!w.name) w.name = w.desc || '';
-    // Добавляем дату создания, если её нет
-    if (!w.createdAt) w.createdAt = new Date().toISOString();
+    if (!w.createdAt) {
+      const daysAgo = list.length - index;
+      w.createdAt = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString();
+    }
     return w;
   });
 }
@@ -144,9 +146,7 @@ function getFilteredWatches() {
   if (priceFilterMax !== null) w = w.filter(x => x.price <= priceFilterMax);
   if (searchQuery) { const q = searchQuery.toLowerCase(); w = w.filter(x => (x.name || '').toLowerCase().includes(q) || (x.desc || '').toLowerCase().includes(q) || (x.article || '').toLowerCase().includes(q)); }
   
-  // СОРТИРОВКА
   if (sortOrder === 'default') {
-    // По умолчанию: сначала новые (createdAt по убыванию)
     w.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   } else if (sortOrder === 'price_asc') {
     w.sort((a, b) => (a.price || 0) - (b.price || 0));
@@ -264,7 +264,14 @@ async function render() {
   const grid = document.getElementById("grid"); if (!grid) return;
   if (!catalogData.length) await loadDataFromFile();
   const watches = getPageWatches(), allFiltered = getFilteredWatches();
-  document.body.classList.toggle("authed", isAuthed);
+  
+  // ВАЖНО: Принудительно устанавливаем класс authed при каждом рендере
+  if (isAuthed) {
+    document.body.classList.add("authed");
+  } else {
+    document.body.classList.remove("authed");
+  }
+  
   const info = document.getElementById("resultsInfo");
   if (info) info.innerHTML = (currentCategory !== "all" || priceFilterMin !== null || priceFilterMax !== null || searchQuery || sortOrder !== 'default') ? `Найдено: <b>${allFiltered.length}</b> (стр. ${currentPage}/${totalPages})` : `Всего: <b>${allFiltered.length}</b>`;
   if (!watches.length) { grid.innerHTML = '<div class="empty">Ничего не найдено.</div>'; const pagDiv = document.getElementById("pagination"); if (pagDiv) pagDiv.innerHTML = ''; return; }
@@ -296,13 +303,20 @@ function updateAuthUI() {
     document.getElementById("saveBtnTop").onclick = saveToFile;
     document.getElementById("logoutBtn").onclick = () => { isAuthed = false; updateAuthUI(); render(); };
     document.getElementById("favBtnAuthed").onclick = openFavModal;
+    
+    // ВАЖНО: Включаем режим редактирования
+    document.body.classList.add("authed");
+    
     if (banner) banner.style.display = "block";
   } else {
     area.innerHTML = `<button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn" id="loginBtn">Войти</button>`;
     document.getElementById("loginBtn").onclick = () => openModal("loginModal");
     document.getElementById("favBtnGuest").onclick = openFavModal;
-    if (banner) banner.style.display = "none";
+    
+    // ВАЖНО: Выключаем режим редактирования
     document.body.classList.remove("authed");
+    
+    if (banner) banner.style.display = "none";
   }
 }
 
@@ -385,6 +399,6 @@ function bindEvents() {
 }
 
 // ========== ЗАПУСК ==========
-console.log('🚀 TEMPUS KZ v20.4 — сортировка по новизне');
+console.log('🚀 TEMPUS KZ v2.0.5 — класс authed исправлен');
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { bindEvents(); initApp(); });
 else { bindEvents(); initApp(); }
