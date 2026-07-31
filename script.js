@@ -1,37 +1,89 @@
-// ========== УНИВЕРСАЛЬНАЯ ОЧИСТКА КЕША ==========
+// ========== ЖЁСТКАЯ ОЧИСТКА КЕША + ПРИНУДИТЕЛЬНАЯ ПЕРЕЗАГРУЗКА ==========
 (function(){
-  const CACHE_VERSION = '2.0.1';
-  const CACHE_KEY = 'tempus_kz_version';
+  const CURRENT_VERSION = '2.0.2';
+  const VERSION_KEY = 'tempus_kz_ver';
+  const RELOAD_KEY = 'tempus_kz_reloaded';
   
-  function forceClearCache() {
-    console.log('🧹 Полная очистка кеша...');
-    const important = {
-      favorites: localStorage.getItem('mdt_favorites_v1'),
-      github: localStorage.getItem('mdt_github_v17')
-    };
+  // 1. Проверяем версию
+  const savedVersion = localStorage.getItem(VERSION_KEY);
+  
+  if (savedVersion !== CURRENT_VERSION) {
+    console.log('🔄 Обнаружена новая версия! Полная очистка...');
+    
+    // 2. Сохраняем ТОЛЬКО избранное (всё остальное удаляем)
+    let favs = null;
+    try { favs = localStorage.getItem('mdt_favorites_v1'); } catch(e) {}
+    
+    // 3. Уничтожаем ВСЁ
     localStorage.clear();
-    if (important.favorites) localStorage.setItem('mdt_favorites_v1', important.favorites);
-    if (important.github) localStorage.setItem('mdt_github_v17', important.github);
     sessionStorage.clear();
+    
+    // 4. Очищаем кеш браузера (Service Workers, Cache API)
     if ('caches' in window) {
-      caches.keys().then(names => { names.forEach(name => caches.delete(name)); });
+      caches.keys().then(names => {
+        names.forEach(name => caches.delete(name));
+        console.log('📦 Service Workers удалены');
+      });
     }
+    
+    // 5. Очищаем cookies
     document.cookie.split(";").forEach(c => {
-      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+      document.cookie = c.replace(/^ +/, "")
+        .replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
     });
-    localStorage.setItem(CACHE_KEY, CACHE_VERSION);
-    localStorage.setItem('cache_cleared_at', new Date().toISOString());
-    console.log('✅ Кеш очищен');
+    
+    // 6. Очищаем IndexedDB
+    if ('indexedDB' in window) {
+      indexedDB.databases().then(dbs => {
+        dbs.forEach(db => indexedDB.deleteDatabase(db.name));
+        console.log('🗄️ IndexedDB очищена');
+      }).catch(() => {});
+    }
+    
+    // 7. Восстанавливаем ТОЛЬКО избранное
+    if (favs) localStorage.setItem('mdt_favorites_v1', favs);
+    
+    // 8. Сохраняем новую версию
+    localStorage.setItem(VERSION_KEY, CURRENT_VERSION);
+    
+    // 9. Принудительная жёсткая перезагрузка (только один раз)
+    if (!sessionStorage.getItem(RELOAD_KEY)) {
+      sessionStorage.setItem(RELOAD_KEY, '1');
+      
+      // Задержка 100 мс для завершения очистки
+      setTimeout(() => {
+        console.log('🔄 Принудительная перезагрузка...');
+        // Жёсткая перезагрузка с очисткой кеша браузера
+        window.location.reload(true);
+      }, 150);
+      
+      // Блокируем выполнение остального кода
+      throw new Error('RELOAD_PLEASE');
+    }
   }
   
-  const savedVersion = localStorage.getItem(CACHE_KEY);
-  if (savedVersion !== CACHE_VERSION) {
-    forceClearCache();
-    if (!sessionStorage.getItem('reloaded_after_cache_clear')) {
-      sessionStorage.setItem('reloaded_after_cache_clear', 'true');
-      setTimeout(() => { window.location.reload(true); }, 100);
+  // 10. Каждые 6 часов — принудительная очистка
+  const lastClean = localStorage.getItem('tempus_kz_last_clean');
+  if (lastClean) {
+    const hoursSince = (Date.now() - parseInt(lastClean)) / (1000 * 60 * 60);
+    if (hoursSince > 6) {
+      console.log('🕐 Плановая очистка (прошло 6 часов)');
+      localStorage.setItem('tempus_kz_last_clean', Date.now().toString());
+      
+      // Мягкая очистка без перезагрузки
+      const favs = localStorage.getItem('mdt_favorites_v1');
+      const github = localStorage.getItem('mdt_github_v17');
+      localStorage.clear();
+      if (favs) localStorage.setItem('mdt_favorites_v1', favs);
+      if (github) localStorage.setItem('mdt_github_v17', github);
+      localStorage.setItem(VERSION_KEY, CURRENT_VERSION);
+      localStorage.setItem('tempus_kz_last_clean', Date.now().toString());
     }
+  } else {
+    localStorage.setItem('tempus_kz_last_clean', Date.now().toString());
   }
+  
+  console.log('✅ Версия ' + CURRENT_VERSION + ' — кеш актуален');
 })();
 
 // ========== КОНСТАНТЫ ==========
@@ -70,7 +122,7 @@ function migrateData(list) { return list.map(w => { if (!w.images) { w.images = 
 // ========== ИЗБРАННОЕ ==========
 function loadFavorites() { if (!canUseStorage) return []; try { return JSON.parse(localStorage.getItem(FAV_KEY) || "[]").filter(a => a?.trim()); } catch (e) { return []; } }
 function saveFavorites() { favorites = favorites.filter(a => a?.trim()); if (canUseStorage) localStorage.setItem(FAV_KEY, JSON.stringify(favorites)); updateFavCount(); }
-function updateFavCount() { document.querySelectorAll('.fav-count').forEach(el => { el.textContent = favorites.length; el.style.animation = 'none'; el.offsetHeight; el.style.animation = 'countPop 0.3s ease'; }); }
+function updateFavCount() { document.querySelectorAll('.fav-count').forEach(el => { el.textContent = favorites.length; }); }
 function isFav(article) { return article?.trim() ? favorites.includes(article) : false; }
 
 function toggleFav(article) {
@@ -80,7 +132,7 @@ function toggleFav(article) {
   saveFavorites();
   const esc = article.replace(/"/g, '\\"');
   const btn = document.querySelector(`[data-fav="${esc}"]`);
-  if (btn) { const a = isFav(article); btn.classList.toggle('active', a); btn.innerHTML = a ? '❤️' : '🤍'; btn.title = a ? 'Убрать' : 'В избранное'; btn.classList.remove('animating'); void btn.offsetWidth; btn.classList.add('animating'); }
+  if (btn) { const a = isFav(article); btn.classList.toggle('active', a); btn.innerHTML = a ? '❤️' : '🤍'; }
   const card = document.querySelector(`[data-article="${esc}"]`);
   if (card) card.classList.toggle('fav-active', isFav(article));
   updateFavCount();
@@ -170,8 +222,8 @@ function parseCSV(csv) { const rows = []; csv.split(/\r?\n/).forEach(line => { i
 
 // ========== GITHUB ==========
 function getGhSettings() { try { const s = localStorage.getItem(GH_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
-async function pushToGh(path, content) { const s = getGhSettings(); if (!s?.token?.trim()) throw new Error('Настройте GitHub'); const token = s.token.trim(), apiUrl = `https://api.github.com/repos/${s.username}/${s.repo}/contents/${path}`; const encoded = btoa(unescape(encodeURIComponent(content))); let sha = null; try { const r = await fetch(apiUrl + '?ref=' + (s.branch || 'main'), { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'X-GitHub-Api-Version': '2022-11-28' } }); if (r.ok) sha = (await r.json()).sha; else if (r.status === 401) throw new Error('Неверный токен'); } catch (e) { if (e.message === 'Неверный токен') throw e; } const body = { message: `Update ${path}`, content: encoded, branch: s.branch || 'main' }; if (sha) body.sha = sha; const r = await fetch(apiUrl, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' }, body: JSON.stringify(body) }); if (!r.ok) { const err = await r.json().catch(() => ({})); if (r.status === 401) throw new Error('Неверный токен'); if (r.status === 422) throw new Error('Файл слишком большой'); throw new Error(err.message || 'HTTP ' + r.status); } }
-async function saveToGithub() { const s = getGhSettings(); if (!s?.token?.trim()) { openModal("githubModal"); return; } const progress = document.getElementById("githubProgress"); if (progress) progress.classList.add("show"); try { const watches = loadWatchesSync(); const watchesWithImages = watches.map(w => ({ ...w, images: w.images || [] })); catalogData = watchesWithImages; if (canUseStorage) localStorage.setItem(LS_KEY, JSON.stringify(catalogData)); const dataJsonContent = JSON.stringify(watchesWithImages, null, 2); let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML; html = html.replace(/<script id="catalog-data" type="application\/json">[\s\S]*?<\/script>/, `<script id="catalog-data" type="application\/json">${JSON.stringify(watchesWithImages).replace(/<\//g, "<\\/")}<\/script>`); await pushToGh('data.json', dataJsonContent); await pushToGh('index.html', html); if (progress) progress.classList.remove("show"); alert('✅ Сохранено!\n\nhttps://' + s.username + '.github.io/' + s.repo + '/'); } catch (e) { if (progress) progress.classList.remove("show"); alert('❌ ' + e.message); } }
+async function pushToGh(path, content) { const s = getGhSettings(); if (!s?.token?.trim()) throw new Error('Настройте GitHub'); const token = s.token.trim(), apiUrl = `https://api.github.com/repos/${s.username}/${s.repo}/contents/${path}`; const encoded = btoa(unescape(encodeURIComponent(content))); let sha = null; try { const r = await fetch(apiUrl + '?ref=' + (s.branch || 'main'), { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'X-GitHub-Api-Version': '2022-11-28' } }); if (r.ok) sha = (await r.json()).sha; else if (r.status === 401) throw new Error('Неверный токен'); } catch (e) { if (e.message === 'Неверный токен') throw e; } const body = { message: `Update ${path}`, content: encoded, branch: s.branch || 'main' }; if (sha) body.sha = sha; const r = await fetch(apiUrl, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' }, body: JSON.stringify(body) }); if (!r.ok) { const err = await r.json().catch(() => ({})); if (r.status === 401) throw new Error('Неверный токен'); throw new Error(err.message || 'HTTP ' + r.status); } }
+async function saveToGithub() { const s = getGhSettings(); if (!s?.token?.trim()) { openModal("githubModal"); return; } try { const watches = loadWatchesSync(); const dataJsonContent = JSON.stringify(watches, null, 2); let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML; html = html.replace(/<script id="catalog-data" type="application\/json">[\s\S]*?<\/script>/, `<script id="catalog-data" type="application\/json">${JSON.stringify(watches).replace(/<\//g, "<\\/")}<\/script>`); await pushToGh('data.json', dataJsonContent); await pushToGh('index.html', html); alert('✅ Сохранено!\n\nhttps://' + s.username + '.github.io/' + s.repo + '/'); } catch (e) { alert('❌ ' + e.message); } }
 
 // ========== ФОРМАТИРОВАНИЕ ==========
 function fmtPrice(n) { return Number(n).toLocaleString("ru-RU") + " ₸"; }
@@ -198,90 +250,35 @@ function fallbackCopy(text) { const ta = document.createElement("textarea"); ta.
 // ========== ПАГИНАЦИЯ ==========
 function renderPagination(container) {
   if (totalPages <= 1) { container.innerHTML = ''; return; }
-  
   let html = '<div class="pagination">';
-  
-  // Кнопка "Назад"
-  html += `<button class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹ Назад</button>`;
-  
-  // Страницы
+  html += `<button class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹</button>`;
   for (let i = 1; i <= totalPages; i++) {
     if (totalPages <= 7 || i === 1 || i === totalPages || Math.abs(i - currentPage) <= 1) {
       html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
-    } else if (i === 2 || i === totalPages - 1) {
-      html += '<span class="page-dots">…</span>';
-    }
+    } else if (i === 2 || i === totalPages - 1) { html += '<span class="page-dots">…</span>'; }
   }
-  
-  // Кнопка "Вперёд"
-  html += `<button class="page-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Вперёд ›</button>`;
-  
-  html += `<span class="page-info">Стр. ${currentPage} из ${totalPages}</span>`;
-  html += '</div>';
-  
+  html += `<button class="page-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>›</button>`;
+  html += `<span class="page-info">${currentPage}/${totalPages}</span></div>`;
   container.innerHTML = html;
 }
 
-function goToPage(page) {
-  if (page < 1 || page > totalPages) return;
-  currentPage = page;
-  render();
-  window.scrollTo({ top: document.getElementById("grid").offsetTop - 100, behavior: 'smooth' });
-}
+function goToPage(page) { if (page < 1 || page > totalPages) return; currentPage = page; render(); window.scrollTo({ top: document.getElementById("grid").offsetTop - 100, behavior: 'smooth' }); }
 
 // ========== РЕНДЕР ==========
 async function render() {
   const grid = document.getElementById("grid"); if (!grid) return;
   if (!catalogData.length) await loadDataFromFile();
-  
-  const watches = getPageWatches();
-  const allFiltered = getFilteredWatches();
+  const watches = getPageWatches(), allFiltered = getFilteredWatches();
   document.body.classList.toggle("authed", isAuthed);
-  
   const info = document.getElementById("resultsInfo");
-  if (info) info.innerHTML = (currentCategory !== "all" || priceFilterMin !== null || priceFilterMax !== null || searchQuery) ? `Найдено: <b>${allFiltered.length}</b> моделей (стр. ${currentPage} из ${totalPages})` : `Всего: <b>${allFiltered.length}</b> моделей`;
-  
+  if (info) info.innerHTML = (currentCategory !== "all" || priceFilterMin !== null || priceFilterMax !== null || searchQuery) ? `Найдено: <b>${allFiltered.length}</b> (стр. ${currentPage}/${totalPages})` : `Всего: <b>${allFiltered.length}</b>`;
   if (!watches.length) { grid.innerHTML = '<div class="empty">Ничего не найдено.</div>'; const pagDiv = document.getElementById("pagination"); if (pagDiv) pagDiv.innerHTML = ''; return; }
-  
   let html = '';
-  watches.forEach((w, i) => {
-    const s = stockInfo(w.qty), images = w.images || [], multi = images.length > 1;
-    const article = w.article || "", favActive = isFav(article);
-    const sc = images.length ? images.map(src => `<div class="slide"><img src="${src}" alt="" draggable="false"></div>`).join("") : `<div class="placeholder">${placeholderSVG()}</div>`;
-    const dots = multi ? `<div class="slider-dots">${images.map((_, k) => `<button class="slider-dot${k === 0 ? ' active' : ''}" data-k="${k}"></button>`).join("")}</div>` : "";
-    const arrows = multi ? `<button class="slider-arrow prev" data-dir="-1">‹</button><button class="slider-arrow next" data-dir="1">›</button>` : "";
-    
-    html += `<article class="card${favActive ? ' fav-active' : ''}" data-article="${escapeHtml(article)}">
-      <button class="fav-btn${favActive ? ' active' : ''}" data-fav="${escapeHtml(article)}">${favActive ? '❤️' : '🤍'}</button>
-      <div class="card-actions"><button class="icon-btn edit" data-edit-article="${escapeHtml(article)}">✎</button><button class="icon-btn del" data-del-article="${escapeHtml(article)}">✕</button></div>
-      <div class="slider${multi ? ' has-multi' : ''}" data-slider="${i}"><div class="slides">${sc}</div>${arrows}${dots}</div>
-      <div class="body">
-        ${w.category ? `<span class="category-badge ${w.category}">${w.category === 'women' ? 'Женские' : 'Мужские'}</span>` : ''}
-        ${article ? `<div class="article">Артикул: ${escapeHtml(article)}</div>` : ''}
-        ${w.name ? `<p class="name">${escapeHtml(w.name)}</p>` : ''}
-        <p class="desc">${escapeHtml(w.desc)}</p>
-        <div class="price-wrap">
-          <div class="price">${fmtPrice(w.price)}</div>
-          <div class="stock ${s.cls}">${s.text}</div>
-        </div>
-      </div>
-    </article>`;
-  });
-  
+  watches.forEach((w, i) => { const s = stockInfo(w.qty), images = w.images || [], multi = images.length > 1; const article = w.article || "", favActive = isFav(article); const sc = images.length ? images.map(src => `<div class="slide"><img src="${src}" alt="" draggable="false"></div>`).join("") : `<div class="placeholder">${placeholderSVG()}</div>`; const dots = multi ? `<div class="slider-dots">${images.map((_, k) => `<button class="slider-dot${k === 0 ? ' active' : ''}" data-k="${k}"></button>`).join("")}</div>` : ""; const arrows = multi ? `<button class="slider-arrow prev" data-dir="-1">‹</button><button class="slider-arrow next" data-dir="1">›</button>` : ""; html += `<article class="card${favActive ? ' fav-active' : ''}" data-article="${escapeHtml(article)}"><button class="fav-btn${favActive ? ' active' : ''}" data-fav="${escapeHtml(article)}">${favActive ? '❤️' : '🤍'}</button><div class="card-actions"><button class="icon-btn edit" data-edit-article="${escapeHtml(article)}">✎</button><button class="icon-btn del" data-del-article="${escapeHtml(article)}">✕</button></div><div class="slider${multi ? ' has-multi' : ''}" data-slider="${i}"><div class="slides">${sc}</div>${arrows}${dots}</div><div class="body">${w.category ? `<span class="category-badge ${w.category}">${w.category === 'women' ? 'Женские' : 'Мужские'}</span>` : ''}${article ? `<div class="article">Артикул: ${escapeHtml(article)}</div>` : ''}${w.name ? `<p class="name">${escapeHtml(w.name)}</p>` : ''}<p class="desc">${escapeHtml(w.desc)}</p><div class="price-wrap"><div class="price">${fmtPrice(w.price)}</div><div class="stock ${s.cls}">${s.text}</div></div></div></article>`; });
   grid.innerHTML = html;
-  
-  // Рендерим пагинацию
-  let pagDiv = document.getElementById("pagination");
-  if (!pagDiv) {
-    pagDiv = document.createElement('div');
-    pagDiv.id = 'pagination';
-    grid.parentNode.insertBefore(pagDiv, grid.nextSibling);
-  }
+  let pagDiv = document.getElementById("pagination"); if (!pagDiv) { pagDiv = document.createElement('div'); pagDiv.id = 'pagination'; grid.parentNode.insertBefore(pagDiv, grid.nextSibling); }
   renderPagination(pagDiv);
-  
-  initSliders();
-  initCardEvents();
-  updateFavCount();
+  initSliders(); initCardEvents(); updateFavCount();
 }
 
 // ========== КАРТОЧКИ ==========
@@ -291,7 +288,7 @@ function initCardEvents() { document.querySelectorAll(".card").forEach(card => {
 function initSliders() { document.querySelectorAll("[data-slider]").forEach(slider => { const slides = slider.querySelector(".slides"), dots = slider.querySelectorAll(".slider-dot"), arrows = slider.querySelectorAll(".slider-arrow"); if (!slides || slides.children.length < 2) return; const total = slides.children.length; let idx = 0; let counter = slider.querySelector('.photo-counter'); if (!counter) { counter = document.createElement('div'); counter.className = 'photo-counter'; slider.appendChild(counter); } const go = n => { idx = (n + total) % total; if (idx < 0) idx = total - 1; slides.style.transform = `translateX(-${idx * 100}%)`; dots.forEach((d, k) => d.classList.toggle("active", k === idx)); counter.textContent = `${idx + 1}/${total}`; }; counter.textContent = `1/${total}`; arrows.forEach(a => a.onclick = e => { e.stopPropagation(); go(idx + parseInt(a.getAttribute("data-dir"))); }); dots.forEach((d, j) => d.onclick = e => { e.stopPropagation(); go(j); }); let sx = 0, dx = 0, dragging = false; slides.addEventListener("touchstart", e => { sx = e.touches[0].clientX; dx = 0; dragging = true; slides.style.transition = "none"; }, { passive: true }); slides.addEventListener("touchmove", e => { if (!dragging) return; dx = e.touches[0].clientX - sx; slides.style.transform = `translateX(${-idx * slides.offsetWidth + dx}px)`; }, { passive: true }); slides.addEventListener("touchend", () => { if (!dragging) return; dragging = false; slides.style.transition = "transform 0.3s ease-out"; if (dx < -slides.offsetWidth * 0.2) go(idx + 1); else if (dx > slides.offsetWidth * 0.2) go(idx - 1); else go(idx); }, { passive: true }); }); }
 
 // ========== АВТОРИЗАЦИЯ ==========
-function updateAuthUI() { const area = document.getElementById("authArea"); if (!area) return; if (isAuthed) { area.innerHTML = `<button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn btn-gold" id="addBtn">+ Добавить</button><button class="btn btn-gold" id="githubBtnTop">🚀 СОХРАНИТЬ!!!</button><button class="btn" id="excelBtnTop">📥Сохранить Excel</button><button class="btn" id="uploadExcelBtnTop">📤 Загрузить свой Excel</button><button class="btn" id="logoutBtn">Выйти</button>`; const addBtn = document.getElementById("addBtn"); if (addBtn) addBtn.onclick = openAddModal; const ghBtn = document.getElementById("githubBtnTop"); if (ghBtn) ghBtn.onclick = saveToGithub; const exBtn = document.getElementById("excelBtnTop"); if (exBtn) exBtn.onclick = downloadExcel; const upBtn = document.getElementById("uploadExcelBtnTop"); if (upBtn) upBtn.onclick = uploadExcel; const svBtn = document.getElementById("saveBtnTop"); if (svBtn) svBtn.onclick = saveToFile; const loBtn = document.getElementById("logoutBtn"); if (loBtn) loBtn.onclick = () => { isAuthed = false; updateAuthUI(); render(); }; const fvBtn = document.getElementById("favBtnAuthed"); if (fvBtn) fvBtn.onclick = openFavModal; } else { area.innerHTML = `<button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn" id="loginBtn">Войти</button>`; const liBtn = document.getElementById("loginBtn"); if (liBtn) liBtn.onclick = () => openModal("loginModal"); const fvBtn = document.getElementById("favBtnGuest"); if (fvBtn) fvBtn.onclick = openFavModal; document.body.classList.remove("authed"); } }
+function updateAuthUI() { const area = document.getElementById("authArea"); if (!area) return; if (isAuthed) { area.innerHTML = `<button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn btn-gold" id="addBtn">+ Добавить</button><button class="btn btn-gold" id="githubBtnTop">🚀 СОХРАНИТЬ!!!</button><button class="btn" id="excelBtnTop">📥Сохранить Excel</button><button class="btn" id="uploadExcelBtnTop">📤 Загрузить свой Excel</button><button class="btn" id="logoutBtn">Выйти</button>`; const addBtn = document.getElementById("addBtn"); if (addBtn) addBtn.onclick = openAddModal; const ghBtn = document.getElementById("githubBtnTop"); if (ghBtn) ghBtn.onclick = saveToGithub; const exBtn = document.getElementById("excelBtnTop"); if (exBtn) exBtn.onclick = downloadExcel; const upBtn = document.getElementById("uploadExcelBtnTop"); if (upBtn) upBtn.onclick = uploadExcel; const svBtn = document.getElementById("saveBtnTop"); if (svBtn) svBtn.onclick = saveToFile; const loBtn = document.getElementById("logoutBtn"); if (loBtn) loBtn.onclick = () => { isAuthed = false; updateAuthUI(); render(); }; const fvBtn = document.getElementById("favBtnAuthed"); if (fvBtn) fvBtn.onclick = openFavModal; document.getElementById("saveBanner").style.display = "block"; } else { area.innerHTML = `<button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn" id="loginBtn">Войти</button>`; const liBtn = document.getElementById("loginBtn"); if (liBtn) liBtn.onclick = () => openModal("loginModal"); const fvBtn = document.getElementById("favBtnGuest"); if (fvBtn) fvBtn.onclick = openFavModal; document.getElementById("saveBanner").style.display = "none"; document.body.classList.remove("authed"); } }
 
 // ========== ДОБАВЛЕНИЕ/РЕДАКТИРОВАНИЕ ==========
 let pendingAddImages = [];
@@ -312,10 +309,21 @@ function setupScrollTop() { const btn = document.getElementById("scrollTopBtn");
 function setupSearch() { const inp = document.getElementById("searchInput"); if (!inp) return; inp.addEventListener('input', function() { searchQuery = this.value.trim(); currentPage = 1; render(); }); }
 
 // ========== ПРЕЛОАДЕР ==========
-function hidePreloader() { setTimeout(() => { const el = document.getElementById('preloader'); if (el) el.classList.add('hidden'); }, 500); }
+function hidePreloader() { setTimeout(() => { const el = document.getElementById('preloader'); if (el) el.classList.add('hidden'); }, 300); }
 
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
-async function initApp() { isAuthed = false; sessionStorage.clear(); if (canUseStorage) { for (let i = 5; i <= 17; i++) { try { localStorage.removeItem('mdt_admin_auth_v' + i); } catch (e) {} } try { localStorage.removeItem('mdt_authed'); } catch (e) {} } favorites = loadFavorites(); saveFavorites(); updateAuthUI(); await render(); hidePreloader(); }
+async function initApp() {
+  isAuthed = false;
+  sessionStorage.clear();
+  if (canUseStorage) { try { localStorage.removeItem('mdt_authed'); } catch (e) {} }
+  favorites = loadFavorites();
+  saveFavorites();
+  updateAuthUI();
+  document.getElementById("saveBanner").style.display = "none";
+  document.body.classList.remove("authed");
+  await render();
+  hidePreloader();
+}
 
 // ========== ОБРАБОТЧИКИ ==========
 function bindEvents() {
@@ -334,7 +342,7 @@ function bindEvents() {
   on("closeGithub", "onclick", () => closeModal("githubModal"));
   on("doLogin", "onclick", function() { const err = $("loginErr"); if (err) err.textContent = ""; const u = $("loginUser"), p = $("loginPass"); if (!u || !p) return; if (u.value.trim() === AUTH.user && p.value === AUTH.pass) { isAuthed = true; closeModal("loginModal"); u.value = ""; p.value = ""; updateAuthUI(); render(); } else if (err) err.textContent = "Неверный логин или пароль"; });
   on("fImgFile", "onchange", async function() { const files = Array.from(this.files || []); if (!files.length) return; pendingAddImages = pendingAddImages.concat(await compressFiles(files)); renderAddThumbs(); this.value = ""; });
-  on("doAdd", "onclick", function() { const err = $("addErr"); if (err) err.textContent = ""; const name = $("fName")?.value?.trim() || '', desc = $("fDesc")?.value?.trim() || '', price = $("fPrice")?.value || ''; if (!name && !desc) { if (err) err.textContent = "Укажите название или описание"; return; } if (price === "" || +price < 0) { if (err) err.textContent = "Укажите цену"; return; } loadWatchesSync().push({ category: $("fCategory")?.value || 'men', article: $("fArticle")?.value?.trim() || '', name, desc, price: +price, qty: $("fQty")?.value === "" ? 0 : +$("fQty").value, images: pendingAddImages.slice() }); saveWatches(loadWatchesSync()); closeModal("addModal"); currentPage = Math.ceil(loadWatchesSync().length / ITEMS_PER_PAGE); render(); });
+  on("doAdd", "onclick", function() { const err = $("addErr"); if (err) err.textContent = ""; const name = $("fName")?.value?.trim() || '', desc = $("fDesc")?.value?.trim() || '', price = $("fPrice")?.value || ''; if (!name && !desc) { if (err) err.textContent = "Укажите название или описание"; return; } if (price === "" || +price < 0) { if (err) err.textContent = "Укажите цену"; return; } loadWatchesSync().push({ category: $("fCategory")?.value || 'men', article: $("fArticle")?.value?.trim() || '', name, desc, price: +price, qty: $("fQty")?.value === "" ? 0 : +$("fQty").value, images: pendingAddImages.slice() }); saveWatches(loadWatchesSync()); closeModal("addModal"); currentPage = Math.ceil(getFilteredWatches().length / ITEMS_PER_PAGE); render(); });
   on("eImgFile", "onchange", async function() { const files = Array.from(this.files || []); if (!files.length) return; editNew = editNew.concat(await compressFiles(files)); renderEditNewThumbs(); this.value = ""; });
   on("doEdit", "onclick", function() { const err = $("editErr"); if (err) err.textContent = ""; const name = $("eName")?.value?.trim() || '', desc = $("eDesc")?.value?.trim() || '', price = $("ePrice")?.value || ''; if (!name && !desc) { if (err) err.textContent = "Укажите название или описание"; return; } if (price === "" || +price < 0) { if (err) err.textContent = "Укажите цену"; return; } const list = loadWatchesSync(); if (!list[editingIndex]) { if (err) err.textContent = "Карточка не найдена"; return; } list[editingIndex] = { ...list[editingIndex], category: $("eCategory")?.value || 'men', article: $("eArticle")?.value?.trim() || '', name, desc, price: +price, qty: $("eQty")?.value === "" ? 0 : +$("eQty").value, images: editExisting.concat(editNew) }; saveWatches(list); closeModal("editModal"); render(); });
   on("saveBtn", "onclick", saveToFile);
@@ -351,6 +359,6 @@ function bindEvents() {
 }
 
 // ========== ЗАПУСК ==========
-console.log('🚀 TEMPUS KZ v19 — пагинация 12 карточек');
+console.log('🚀 TEMPUS KZ v20 — жёсткая очистка кеша');
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { bindEvents(); initApp(); });
 else { bindEvents(); initApp(); }
