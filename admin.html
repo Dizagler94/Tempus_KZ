@@ -15,12 +15,20 @@ body {
 }
 h1 { color: #d4af37; margin-bottom: 20px; font-size: 24px; }
 h2 { color: #d4af37; margin-top: 30px; font-size: 18px; }
+.locked {
+  text-align: center;
+  padding: 80px 20px;
+  color: #8a8a94;
+}
+.locked h2 { color: #ff8a7a; font-size: 28px; margin-bottom: 20px; }
+.locked p { font-size: 16px; margin-bottom: 30px; }
+.locked .btn { display: inline-block; }
 .toolbar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }
 .btn {
   background: linear-gradient(135deg, #d4af37, #c9a030);
   color: #1a1a1a; border: none;
   padding: 10px 20px; border-radius: 8px; cursor: pointer;
-  font-weight: 600; font-size: 14px; transition: all 0.3s ease;
+  font-weight: 600; font-size: 14px; transition: all 0.3s ease; text-decoration: none;
 }
 .btn:hover { opacity: 0.9; transform: translateY(-1px); }
 .btn-secondary { background: #333; color: #fff; }
@@ -30,6 +38,19 @@ h2 { color: #d4af37; margin-top: 30px; font-size: 18px; }
 .status-success { background: rgba(39, 174, 96, 0.2); color: #2ecc71; border: 1px solid rgba(39, 174, 96, 0.3); }
 .status-error { background: rgba(192, 57, 43, 0.2); color: #e74c3c; border: 1px solid rgba(192, 57, 43, 0.3); }
 .status-info { background: rgba(52, 152, 219, 0.2); color: #3498db; border: 1px solid rgba(52, 152, 219, 0.3); }
+.github-settings {
+  background: #111; padding: 20px; border-radius: 10px; margin-bottom: 20px;
+  border: 1px solid #222;
+}
+.github-settings h3 { color: #d4af37; margin-bottom: 15px; font-size: 16px; }
+.form-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.form-group { flex: 1; min-width: 200px; }
+.form-group label { display: block; font-size: 11px; color: #8a8a94; margin-bottom: 5px; text-transform: uppercase; }
+.form-group input {
+  width: 100%; background: #1a1a22; border: 1px solid #333; color: #fff;
+  padding: 10px; border-radius: 6px; font-size: 14px;
+}
+.form-group input:focus { outline: none; border-color: #d4af37; }
 table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #111; border-radius: 10px; overflow: hidden; border: 1px solid #222; }
 th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid #222; }
 th { background: #1a1a1a; color: #d4af37; font-size: 11px; text-transform: uppercase; white-space: nowrap; }
@@ -50,8 +71,7 @@ td textarea { resize: vertical; min-height: 40px; }
 .icon-btn:hover { border-color: #d4af37; background: #333; }
 .icon-btn.danger:hover { background: #c0392b; border-color: #c0392b; }
 pre { background: #111; padding: 15px; border-radius: 8px; overflow-x: auto; margin-top: 20px; font-size: 12px; color: #8a8a94; border: 1px solid #222; max-height: 400px; overflow-y: auto; }
-.github-info { background: rgba(212, 175, 55, 0.1); padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid rgba(212, 175, 55, 0.2); font-size: 13px; color: #8a8a94; }
-.github-info b { color: #d4af37; }
+#adminContent { display: none; }
 @media (max-width: 768px) {
   table { font-size: 11px; }
   th, td { padding: 6px 4px; }
@@ -62,79 +82,181 @@ pre { background: #111; padding: 15px; border-radius: 8px; overflow-x: auto; mar
 </head>
 <body>
 
-<h1>⚙️ TEMPUS KZ — Админ-панель</h1>
-
-<div class="github-info">
-  <b>🔗 GitHub:</b> TempusKZ / Tempus_KZ · Токен вшит · 
-  <span style="color:#2ecc71;">✓ Автосохранение активно</span>
+<!-- Экран блокировки -->
+<div id="lockedScreen" class="locked">
+  <h2>🔒 Доступ запрещён</h2>
+  <p>Для доступа к админ-панели необходимо авторизоваться на основном сайте под учётной записью администратора.</p>
+  <a href="index.html" class="btn">🏠 На главную</a>
 </div>
 
-<div class="toolbar">
-  <button class="btn" onclick="loadData()">📥 Загрузить data.json</button>
-  <button class="btn" onclick="saveToGithub()">🚀 Сохранить на GitHub</button>
-  <button class="btn btn-secondary" onclick="downloadJSON()">📥 Скачать JSON</button>
-  <button class="btn btn-secondary" onclick="addRow()">➕ Добавить строку</button>
-  <button class="btn btn-secondary" onclick="window.open('index.html', '_blank')">🏠 Открыть сайт</button>
+<!-- Контент админ-панели (скрыт по умолчанию) -->
+<div id="adminContent">
+  <h1>⚙️ TEMPUS KZ — Админ-панель</h1>
+
+  <div class="github-settings">
+    <h3>🔑 Настройки GitHub (для автосохранения)</h3>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Имя пользователя</label>
+        <input type="text" id="ghUser" placeholder="TempusKZ">
+      </div>
+      <div class="form-group">
+        <label>Репозиторий</label>
+        <input type="text" id="ghRepo" placeholder="Tempus_KZ">
+      </div>
+      <div class="form-group">
+        <label>Ветка</label>
+        <input type="text" id="ghBranch" value="main" placeholder="main">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex: 2;">
+        <label>Personal Access Token (права repo)</label>
+        <input type="password" id="ghToken" placeholder="ghp_...">
+      </div>
+      <div class="form-group" style="flex: 0; min-width: auto; display: flex; align-items: flex-end;">
+        <button class="btn" onclick="saveGithubSettings()">💾 Сохранить</button>
+      </div>
+    </div>
+    <small style="color: #8a8a94;">
+      Токен с правами <b>repo</b>. 
+      <a href="https://github.com/settings/tokens" target="_blank" style="color: #d4af37;">Создать токен</a>
+    </small>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn" onclick="loadData()">📥 Загрузить data.json</button>
+    <button class="btn" onclick="saveToGithub()">🚀 Сохранить на GitHub</button>
+    <button class="btn btn-secondary" onclick="downloadJSON()">📥 Скачать JSON</button>
+    <button class="btn btn-secondary" onclick="addRow()">➕ Добавить строку</button>
+    <button class="btn btn-secondary" onclick="window.open('index.html', '_blank')">🏠 Открыть сайт</button>
+    <button class="btn btn-danger" onclick="logout()">🚪 Выйти</button>
+  </div>
+
+  <div id="status"></div>
+
+  <div style="overflow-x: auto;">
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th>Артикул</th>
+          <th>Название</th>
+          <th>Описание</th>
+          <th>Категория</th>
+          <th>Цена (₸)</th>
+          <th>Кол-во</th>
+          <th>Фото (URL через запятую)</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <h2>📄 Предпросмотр data.json:</h2>
+  <pre id="jsonPreview">Загрузка...</pre>
 </div>
-
-<div id="status"></div>
-
-<div style="overflow-x: auto;">
-  <table id="dataTable">
-    <thead>
-      <tr>
-        <th>Артикул</th>
-        <th>Название</th>
-        <th>Описание</th>
-        <th>Категория</th>
-        <th>Цена (₸)</th>
-        <th>Кол-во</th>
-        <th>Фото (URL через запятую)</th>
-        <th>Действия</th>
-      </tr>
-    </thead>
-    <tbody id="tableBody"></tbody>
-  </table>
-</div>
-
-<h2>📄 Предпросмотр data.json:</h2>
-<pre id="jsonPreview">Загрузка...</pre>
 
 <script>
-// ========== НАСТРОЙКИ GITHUB (вшиты) ==========
-const GITHUB_CONFIG = {
-  username: 'TempusKZ',
-  repo: 'Tempus_KZ',
-  token: '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',
-  branch: 'main'
-};
-
+// ========== ПРОВЕРКА АВТОРИЗАЦИИ ==========
+const AUTH_KEY = 'mdt_admin_auth_v5';
 const LS_KEY = 'mdt_watches_v2';
-let data = [];
+const GITHUB_SETTINGS_KEY = 'mdt_github_settings_v5';
 
-// ========== GITHUB API ==========
+function checkAuth() {
+  const authData = sessionStorage.getItem(AUTH_KEY);
+  if (!authData) return false;
+  
+  try {
+    const data = JSON.parse(authData);
+    // Проверяем, что авторизация не старше 24 часов
+    if (Date.now() - data.timestamp > 24 * 60 * 60 * 1000) {
+      sessionStorage.removeItem(AUTH_KEY);
+      return false;
+    }
+    return data.user === 'anastasia_zy_zy';
+  } catch (e) {
+    return false;
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem(AUTH_KEY);
+  window.location.href = 'index.html';
+}
+
+// При загрузке страницы
+if (checkAuth()) {
+  document.getElementById('lockedScreen').style.display = 'none';
+  document.getElementById('adminContent').style.display = 'block';
+  init();
+} else {
+  document.getElementById('lockedScreen').style.display = 'block';
+  document.getElementById('adminContent').style.display = 'none';
+}
+
+// ========== GITHUB ==========
+function getGithubSettings() {
+  try {
+    const s = localStorage.getItem(GITHUB_SETTINGS_KEY);
+    return s ? JSON.parse(s) : null;
+  } catch (e) { return null; }
+}
+
+function saveGithubSettings() {
+  const settings = {
+    username: document.getElementById('ghUser').value.trim(),
+    repo: document.getElementById('ghRepo').value.trim(),
+    token: document.getElementById('ghToken').value.trim(),
+    branch: document.getElementById('ghBranch').value.trim() || 'main'
+  };
+  
+  if (!settings.username || !settings.repo || !settings.token) {
+    showStatus('❌ Заполните все поля GitHub', 'status-error');
+    return;
+  }
+  
+  localStorage.setItem(GITHUB_SETTINGS_KEY, JSON.stringify(settings));
+  showStatus('✅ Настройки GitHub сохранены', 'status-success');
+}
+
+function loadGithubSettings() {
+  const settings = getGithubSettings();
+  if (settings) {
+    document.getElementById('ghUser').value = settings.username || '';
+    document.getElementById('ghRepo').value = settings.repo || '';
+    document.getElementById('ghToken').value = settings.token || '';
+    document.getElementById('ghBranch').value = settings.branch || 'main';
+  }
+}
+
 async function saveToGithub() {
+  const settings = getGithubSettings();
+  if (!settings || !settings.username || !settings.repo || !settings.token) {
+    showStatus('❌ Заполните и сохраните настройки GitHub', 'status-error');
+    return;
+  }
+  
   localStorage.setItem(LS_KEY, JSON.stringify(data));
   showStatus('⏳ Отправка data.json на GitHub...', 'status-info');
   
   try {
-    await pushFile('data.json', JSON.stringify(data, null, 2));
+    await pushFile(settings, 'data.json', JSON.stringify(data, null, 2));
     showStatus('✅ data.json сохранён на GitHub! Сайт обновится через 1-2 минуты.', 'status-success');
   } catch (e) {
     showStatus('❌ Ошибка GitHub: ' + e.message, 'status-error');
   }
 }
 
-async function pushFile(path, content) {
+async function pushFile(settings, path, content) {
   const encoded = btoa(unescape(encodeURIComponent(content)));
-  const apiUrl = `https://api.github.com/repos/${GITHUB_CONFIG.username}/${GITHUB_CONFIG.repo}/contents/${path}`;
+  const apiUrl = `https://api.github.com/repos/${settings.username}/${settings.repo}/contents/${path}`;
   
-  // Получаем SHA если файл существует
   let sha = null;
   try {
-    const getResp = await fetch(apiUrl + '?ref=' + GITHUB_CONFIG.branch, {
+    const getResp = await fetch(apiUrl + '?ref=' + settings.branch, {
       headers: {
-        'Authorization': `token ${GITHUB_CONFIG.token}`,
+        'Authorization': `token ${settings.token}`,
         'Accept': 'application/vnd.github.v3+json'
       }
     });
@@ -144,18 +266,17 @@ async function pushFile(path, content) {
     }
   } catch (e) {}
   
-  // Отправляем файл
   const body = {
     message: `Update ${path} - ${new Date().toISOString()}`,
     content: encoded,
-    branch: GITHUB_CONFIG.branch
+    branch: settings.branch
   };
   if (sha) body.sha = sha;
   
   const putResp = await fetch(apiUrl, {
     method: 'PUT',
     headers: {
-      'Authorization': `token ${GITHUB_CONFIG.token}`,
+      'Authorization': `token ${settings.token}`,
       'Accept': 'application/vnd.github.v3+json',
       'Content-Type': 'application/json'
     },
@@ -168,11 +289,12 @@ async function pushFile(path, content) {
   }
 }
 
-// ========== ЗАГРУЗКА ДАННЫХ ==========
+// ========== ДАННЫЕ ==========
+let data = [];
+
 async function loadData() {
   showStatus('⏳ Загрузка данных...', 'status-info');
   
-  // Пробуем загрузить из data.json
   try {
     const response = await fetch('data.json?_=' + Date.now());
     if (response.ok) {
@@ -185,7 +307,6 @@ async function loadData() {
     }
   } catch (e) {}
   
-  // Пробуем localStorage
   const lsData = localStorage.getItem(LS_KEY);
   if (lsData) {
     try {
@@ -200,10 +321,9 @@ async function loadData() {
   data = [];
   renderTable();
   updatePreview();
-  showStatus('📄 Данные не найдены. Создайте новую запись.', 'status-info');
+  showStatus('📄 Данные не найдены', 'status-info');
 }
 
-// ========== ТАБЛИЦА ==========
 function renderTable() {
   const tbody = document.getElementById('tableBody');
   
@@ -227,7 +347,7 @@ function renderTable() {
       <td><input type="number" value="${item.qty || 0}" data-idx="${index}" data-field="qty" style="min-width:70px;"></td>
       <td><input type="text" value="${escapeAttr((item.images || []).join(', '))}" data-idx="${index}" data-field="imagesStr" style="min-width:150px;"></td>
       <td class="actions-cell">
-        <button class="icon-btn" onclick="saveRow(${index})" title="Сохранить строку">💾</button>
+        <button class="icon-btn" onclick="saveRow(${index})" title="Сохранить">💾</button>
         <button class="icon-btn" onclick="duplicateRow(${index})" title="Дублировать">📋</button>
         <button class="icon-btn danger" onclick="deleteRow(${index})" title="Удалить">🗑️</button>
       </td>
@@ -236,8 +356,7 @@ function renderTable() {
   
   tbody.querySelectorAll('input, textarea, select').forEach(el => {
     el.addEventListener('change', function() {
-      const idx = parseInt(this.getAttribute('data-idx'));
-      saveRow(idx, true);
+      saveRow(parseInt(this.getAttribute('data-idx')), true);
     });
   });
 }
@@ -252,8 +371,7 @@ function saveRow(index, silent = false) {
     if (field === 'price' || field === 'qty') {
       value = Number(value) || 0;
     } else if (field === 'imagesStr') {
-      const images = value.split(',').map(s => s.trim()).filter(s => s);
-      data[index].images = images;
+      data[index].images = value.split(',').map(s => s.trim()).filter(s => s);
       return;
     }
     
@@ -263,14 +381,12 @@ function saveRow(index, silent = false) {
   localStorage.setItem(LS_KEY, JSON.stringify(data));
   updatePreview();
   
-  if (!silent) {
-    showStatus(`✅ Строка ${index + 1} сохранена в localStorage`, 'status-success');
-  }
+  if (!silent) showStatus(`✅ Строка ${index + 1} сохранена`, 'status-success');
 }
 
 function deleteRow(index) {
   const name = data[index].name || data[index].article || 'без названия';
-  if (confirm(`Удалить модель "${name}"?`)) {
+  if (confirm(`Удалить "${name}"?`)) {
     data.splice(index, 1);
     localStorage.setItem(LS_KEY, JSON.stringify(data));
     renderTable();
@@ -293,12 +409,7 @@ function duplicateRow(index) {
 function addRow() {
   data.push({
     article: 'TK-' + new Date().getFullYear() + '-' + String(data.length + 1).padStart(3, '0'),
-    name: '',
-    desc: '',
-    category: 'men',
-    price: 0,
-    qty: 0,
-    images: []
+    name: '', desc: '', category: 'men', price: 0, qty: 0, images: []
   });
   localStorage.setItem(LS_KEY, JSON.stringify(data));
   renderTable();
@@ -314,9 +425,7 @@ function downloadJSON() {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
-  a.download = 'data.json';
-  a.click();
+  a.href = url; a.download = 'data.json'; a.click();
   URL.revokeObjectURL(url);
   showStatus('📥 data.json скачан', 'status-success');
 }
@@ -325,9 +434,7 @@ function showStatus(message, className) {
   const status = document.getElementById('status');
   status.textContent = message;
   status.className = 'show ' + className;
-  if (className === 'status-success') {
-    setTimeout(() => { status.classList.remove('show'); }, 4000);
-  }
+  if (className === 'status-success') setTimeout(() => status.classList.remove('show'), 4000);
 }
 
 function escapeHtml(s) {
@@ -340,8 +447,10 @@ function escapeAttr(s) {
   return String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// ========== ЗАПУСК ==========
-loadData();
+function init() {
+  loadGithubSettings();
+  loadData();
+}
 </script>
 
 </body>
