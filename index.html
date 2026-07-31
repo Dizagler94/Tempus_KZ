@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="ru"><head>
+<html lang="ru">
+<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a0a0c">
@@ -8,9 +9,110 @@
 <meta http-equiv="Expires" content="0">
 <title>TEMPUS KZ — Наручные часы | Кокшетау</title>
 <link rel="icon" type="image/png" href="favicon.jpg">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
+<style>
+/* Стили для встроенной админ-панели */
+#adminPanel {
+  display: none;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+#adminPanel.show { display: block; }
+.admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.admin-header h2 { color: #d4af37; font-size: 20px; }
+.admin-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.admin-table-wrap {
+  overflow-x: auto;
+  background: #111;
+  border-radius: 10px;
+  border: 1px solid #222;
+  margin-bottom: 20px;
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+.admin-table th, .admin-table td {
+  padding: 8px 6px;
+  text-align: left;
+  border-bottom: 1px solid #222;
+  font-size: 12px;
+}
+.admin-table th {
+  background: #1a1a1a;
+  color: #d4af37;
+  font-size: 10px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.admin-table td { vertical-align: top; }
+.admin-table input, .admin-table textarea, .admin-table select {
+  width: 100%;
+  background: #1a1a22;
+  border: 1px solid #333;
+  color: #fff;
+  padding: 5px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: inherit;
+}
+.admin-table input:focus, .admin-table textarea:focus, .admin-table select:focus {
+  outline: none;
+  border-color: #d4af37;
+}
+.admin-table textarea { resize: vertical; min-height: 30px; }
+.gh-settings {
+  background: #111;
+  padding: 15px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  border: 1px solid #222;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+.gh-settings label { font-size: 10px; color: #8a8a94; text-transform: uppercase; display: block; margin-bottom: 3px; }
+.gh-settings input {
+  width: 100%;
+  background: #1a1a22;
+  border: 1px solid #333;
+  color: #fff;
+  padding: 8px;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.gh-settings input:focus { outline: none; border-color: #d4af37; }
+.auto-save-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #2ecc71;
+  animation: pulse 2s infinite;
+  margin-right: 6px;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+</style>
 </head>
-<body class="authed">
+<body>
 
 <header>
   <div class="nav">
@@ -21,9 +123,10 @@
         <small>Наручные часы | Кокшетау</small>
       </div>
     </div>
-    <div class="nav-actions" id="authArea"><button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count" style="animation: 0.3s ease 0s 1 normal none running countPop;">0</span></button>
-      <button class="btn btn-gold" id="addBtn">+ Добавить</button>
-      <button class="btn" id="logoutBtn">Выйти</button></div>
+    <div class="nav-actions" id="authArea">
+      <button class="btn btn-fav" id="favBtn">❤️ Избранное<span class="fav-count" id="favCount">0</span></button>
+      <button class="btn" id="loginBtn">Войти</button>
+    </div>
   </div>
 </header>
 
@@ -54,9 +157,9 @@
 
 <div class="results-info" id="resultsInfo"></div>
 
-<div class="save-banner show" id="saveBanner">
+<div class="save-banner" id="saveBanner">
   <div class="inner">
-    <span>⏳ <b>Отправка на GitHub...</b></span>
+    <span>⚠️ Изменения пока <b>только в браузере</b>. Нажмите кнопку, чтобы сохранить.</span>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-gold" id="saveBtn">💾 Скачать</button>
       <button class="btn btn-gold" id="githubBtn">🚀 На GitHub</button>
@@ -64,25 +167,54 @@
   </div>
 </div>
 
-<main class="grid" id="grid"><article class="card" data-article="TK-2026-001">
-      <button class="fav-btn" data-fav="TK-2026-001">🤍</button>
-      <div class="card-actions"><button class="icon-btn edit" data-edit-article="TK-2026-001">✎</button><button class="icon-btn del" data-del-article="TK-2026-001">✕</button></div>
-      <div class="slider" data-slider="0"><div class="slides"><div class="placeholder"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d98a"></stop><stop offset="100%" stop-color="#d4af37"></stop></linearGradient></defs><circle cx="50" cy="50" r="28" fill="none" stroke="url(#g)" stroke-width="2.5"></circle><circle cx="50" cy="50" r="22" fill="none" stroke="url(#g)" stroke-width="1" opacity=".6"></circle><line x1="50" y1="50" x2="50" y2="34" stroke="url(#g)" stroke-width="2" stroke-linecap="round"></line><line x1="50" y1="50" x2="62" y2="50" stroke="url(#g)" stroke-width="2" stroke-linecap="round"></line></svg></div></div></div>
-      <div class="body">
-        <div class="article">Артикул: TK-2026-001</div>
-        <p class="name">Хронограф Премиум</p>
-        <p class="desc">Швейцарский механизм, сапфировое стекло, водозащита 100м</p>
-        <div class="price">850&nbsp;000 ₸</div>
-        <div class="stock low">В наличии: 3 шт.</div>
-      </div>
-    </article></main>
+<main class="grid" id="grid"></main>
 
-<footer id="mainFooter">© 2026 TEMPUS KZ · Оффлайн-каталог · <a href="admin.html" style="color:#d4af37;text-decoration:none;">⚙️ Админ-панель</a></footer>
-
-<!-- Кнопка очистки кеша (видна только админу) -->
-<div id="resetCacheArea" style="display: block; position: fixed; bottom: 10px; right: 10px; z-index: 999;">
-  <button onclick="resetAllCache()" style="background:#c0392b;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;">🧹 Сброс кеша</button>
+<!-- ВСТРОЕННАЯ АДМИН-ПАНЕЛЬ -->
+<div id="adminPanel">
+  <div class="admin-header">
+    <h2><span class="auto-save-indicator"></span>⚙️ Админ-панель</h2>
+    <button class="btn" id="closeAdminBtn">✕ Закрыть</button>
+  </div>
+  
+  <div class="gh-settings">
+    <div><label>GitHub Логин</label><input type="text" id="aGhUser" placeholder="TempusKZ"></div>
+    <div><label>Репозиторий</label><input type="text" id="aGhRepo" placeholder="Tempus_KZ"></div>
+    <div><label>Токен</label><input type="password" id="aGhToken" placeholder="ghp_..."></div>
+    <div><label>Ветка</label><input type="text" id="aGhBranch" value="main"></div>
+    <div><button class="btn btn-gold" onclick="saveAdminGithub()">💾 Сохранить</button></div>
+  </div>
+  
+  <div class="admin-toolbar">
+    <button class="btn btn-gold" onclick="adminSaveToGithub()">🚀 Отправить на GitHub</button>
+    <button class="btn" onclick="adminAddRow()">➕ Добавить</button>
+    <button class="btn" onclick="adminDownloadJSON()">📥 Скачать JSON</button>
+    <button class="btn btn-gold" onclick="adminSaveToFile()">💾 Скачать index.html</button>
+  </div>
+  
+  <div class="admin-table-wrap">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>Артикул</th>
+          <th>Название</th>
+          <th>Описание</th>
+          <th>Категория</th>
+          <th>Цена</th>
+          <th>Кол-во</th>
+          <th>Фото (URL)</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody id="adminTableBody"></tbody>
+    </table>
+  </div>
+  
+  <div id="adminStatus" style="padding:10px;border-radius:6px;font-size:13px;display:none;"></div>
 </div>
+
+<footer id="mainFooter">
+  © 2026 TEMPUS KZ · Оффлайн-каталог
+</footer>
 
 <!-- Лайтбокс -->
 <div class="lightbox" id="lightbox">
@@ -104,8 +236,8 @@
   <div class="modal-box">
     <h2>Авторизация</h2>
     <div class="sub">Доступ для управления каталогом</div>
-    <div class="field"><label>Логин</label><input type="text" id="loginUser" autocomplete="username"></div>
-    <div class="field"><label>Пароль</label><input type="password" id="loginPass" autocomplete="current-password"></div>
+    <div class="field"><label>Логин</label><input type="text" id="loginUser"></div>
+    <div class="field"><label>Пароль</label><input type="password" id="loginPass"></div>
     <div class="err" id="loginErr"></div>
     <div class="actions">
       <button class="btn" id="closeLogin">Отмена</button>
@@ -131,7 +263,7 @@
     </div>
     <div class="field"><label>Фото часов (можно несколько)</label>
       <div class="file-input">
-        <input type="file" id="fImgFile" accept="image/*" multiple="">
+        <input type="file" id="fImgFile" accept="image/*" multiple>
         <div class="file-input-text"><b>Нажмите для загрузки</b> фото<br><small>JPG, PNG, WEBP</small></div>
       </div>
       <div class="thumbs-gallery" id="addThumbs"></div>
@@ -162,7 +294,7 @@
     <div class="field"><label>Текущие фото</label><div class="thumbs-gallery" id="editThumbs"></div></div>
     <div class="field"><label>Добавить ещё фото</label>
       <div class="file-input">
-        <input type="file" id="eImgFile" accept="image/*" multiple="">
+        <input type="file" id="eImgFile" accept="image/*" multiple>
         <div class="file-input-text"><b>Выберите фото</b></div>
       </div>
       <div class="thumbs-gallery" id="editNewThumbs"></div>
@@ -171,23 +303,6 @@
     <div class="actions">
       <button class="btn" id="closeEdit">Отмена</button>
       <button class="btn btn-gold" id="doEdit">Сохранить</button>
-    </div>
-  </div>
-</div>
-
-<!-- Модалка: Настройки GitHub -->
-<div class="modal" id="githubModal">
-  <div class="modal-box">
-    <h2>Настройки GitHub</h2>
-    <div class="sub">Введите данные для автосохранения</div>
-    <div class="field"><label>Имя пользователя</label><input type="text" id="ghUser" placeholder="TempusKZ"></div>
-    <div class="field"><label>Репозиторий</label><input type="text" id="ghRepo" placeholder="Tempus_KZ"></div>
-    <div class="field"><label>Personal Access Token</label><input type="password" id="ghToken" placeholder="ghp_..."></div>
-    <div class="field"><label>Ветка</label><input type="text" id="ghBranch" value="main" placeholder="main"></div>
-    <div class="err" id="githubErr"></div>
-    <div class="actions">
-      <button class="btn" id="closeGithub">Отмена</button>
-      <button class="btn btn-gold" id="saveGithub">💾 Сохранить и отправить</button>
     </div>
   </div>
 </div>
@@ -206,8 +321,7 @@
   </div>
 </div>
 
-<script id="catalog-data" type="application/json">[{"article":"TK-2026-001","name":"Хронограф Премиум","desc":"Швейцарский механизм, сапфировое стекло, водозащита 100м","category":"men","price":850000,"qty":3,"images":[]}]</script>
-<script src="script.js?v=9"></script>
-
-
-</body></html>
+<script id="catalog-data" type="application/json">[]</script>
+<script src="script.js?v=10"></script>
+</body>
+</html>
