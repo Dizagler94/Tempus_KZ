@@ -1,6 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
-<head>
+<html lang="ru"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a0a0c">
@@ -11,7 +10,7 @@
 <link rel="icon" type="image/png" href="favicon.jpg">
 <link rel="stylesheet" href="style.css?v=9">
 </head>
-<body>
+<body class="authed">
 
 <header>
   <div class="nav">
@@ -22,10 +21,9 @@
         <small>Наручные часы | Кокшетау</small>
       </div>
     </div>
-    <div class="nav-actions" id="authArea">
-      <button class="btn btn-fav" id="favBtn">❤️ Избранное<span class="fav-count" id="favCount">0</span></button>
-      <button class="btn" id="loginBtn">Войти</button>
-    </div>
+    <div class="nav-actions" id="authArea"><button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count" style="animation: 0.3s ease 0s 1 normal none running countPop;">0</span></button>
+      <button class="btn btn-gold" id="addBtn">+ Добавить</button>
+      <button class="btn" id="logoutBtn">Выйти</button></div>
   </div>
 </header>
 
@@ -56,9 +54,9 @@
 
 <div class="results-info" id="resultsInfo"></div>
 
-<div class="save-banner" id="saveBanner">
+<div class="save-banner show" id="saveBanner">
   <div class="inner">
-    <span>⚠️ Изменения пока <b>только в браузере</b>. Нажмите кнопку, чтобы сохранить.</span>
+    <span>⏳ <b>Отправка на GitHub...</b></span>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-gold" id="saveBtn">💾 Скачать</button>
       <button class="btn btn-gold" id="githubBtn">🚀 На GitHub</button>
@@ -66,14 +64,23 @@
   </div>
 </div>
 
-<main class="grid" id="grid"></main>
+<main class="grid" id="grid"><article class="card" data-article="TK-2026-001">
+      <button class="fav-btn" data-fav="TK-2026-001">🤍</button>
+      <div class="card-actions"><button class="icon-btn edit" data-edit-article="TK-2026-001">✎</button><button class="icon-btn del" data-del-article="TK-2026-001">✕</button></div>
+      <div class="slider" data-slider="0"><div class="slides"><div class="placeholder"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d98a"></stop><stop offset="100%" stop-color="#d4af37"></stop></linearGradient></defs><circle cx="50" cy="50" r="28" fill="none" stroke="url(#g)" stroke-width="2.5"></circle><circle cx="50" cy="50" r="22" fill="none" stroke="url(#g)" stroke-width="1" opacity=".6"></circle><line x1="50" y1="50" x2="50" y2="34" stroke="url(#g)" stroke-width="2" stroke-linecap="round"></line><line x1="50" y1="50" x2="62" y2="50" stroke="url(#g)" stroke-width="2" stroke-linecap="round"></line></svg></div></div></div>
+      <div class="body">
+        <div class="article">Артикул: TK-2026-001</div>
+        <p class="name">Хронограф Премиум</p>
+        <p class="desc">Швейцарский механизм, сапфировое стекло, водозащита 100м</p>
+        <div class="price">850&nbsp;000 ₸</div>
+        <div class="stock low">В наличии: 3 шт.</div>
+      </div>
+    </article></main>
 
-<footer id="mainFooter">
-  © 2026 TEMPUS KZ · Оффлайн-каталог
-</footer>
+<footer id="mainFooter">© 2026 TEMPUS KZ · Оффлайн-каталог · <a href="admin.html" style="color:#d4af37;text-decoration:none;">⚙️ Админ-панель</a></footer>
 
 <!-- Кнопка очистки кеша (видна только админу) -->
-<div id="resetCacheArea" style="display:none; position:fixed; bottom:10px; right:10px; z-index:999;">
+<div id="resetCacheArea" style="display: block; position: fixed; bottom: 10px; right: 10px; z-index: 999;">
   <button onclick="resetAllCache()" style="background:#c0392b;color:#fff;border:none;padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;">🧹 Сброс кеша</button>
 </div>
 
@@ -124,7 +131,7 @@
     </div>
     <div class="field"><label>Фото часов (можно несколько)</label>
       <div class="file-input">
-        <input type="file" id="fImgFile" accept="image/*" multiple>
+        <input type="file" id="fImgFile" accept="image/*" multiple="">
         <div class="file-input-text"><b>Нажмите для загрузки</b> фото<br><small>JPG, PNG, WEBP</small></div>
       </div>
       <div class="thumbs-gallery" id="addThumbs"></div>
@@ -155,7 +162,7 @@
     <div class="field"><label>Текущие фото</label><div class="thumbs-gallery" id="editThumbs"></div></div>
     <div class="field"><label>Добавить ещё фото</label>
       <div class="file-input">
-        <input type="file" id="eImgFile" accept="image/*" multiple>
+        <input type="file" id="eImgFile" accept="image/*" multiple="">
         <div class="file-input-text"><b>Выберите фото</b></div>
       </div>
       <div class="thumbs-gallery" id="editNewThumbs"></div>
@@ -199,7 +206,8 @@
   </div>
 </div>
 
-<script id="catalog-data" type="application/json">[]</script>
+<script id="catalog-data" type="application/json">[{"article":"TK-2026-001","name":"Хронограф Премиум","desc":"Швейцарский механизм, сапфировое стекло, водозащита 100м","category":"men","price":850000,"qty":3,"images":[]}]</script>
 <script src="script.js?v=9"></script>
-</body>
-</html>
+
+
+</body></html>
