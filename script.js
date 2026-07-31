@@ -120,7 +120,7 @@ function downloadExcel(){
 }
 
 // ========== EXCEL ЗАГРУЗКА ==========
-function uploadExcel(){document.getElementById("excelFileInput").click();}
+function uploadExcel(){const el=document.getElementById("excelFileInput");if(el)el.click();}
 function handleExcelUpload(event){
   const file=event.target.files[0];if(!file)return;
   const reader=new FileReader();
@@ -172,7 +172,7 @@ async function pushToGh(path,content){
 }
 async function saveToGithub(){
   const s=getGhSettings();if(!s?.token?.trim()){openModal("githubModal");return;}
-  document.getElementById("githubProgress").classList.add("show");
+  const progress=document.getElementById("githubProgress");if(progress)progress.classList.add("show");
   try{
     const watches=loadWatchesSync();
     const watchesWithImages=watches.map(w=>({...w,images:w.images||[]}));
@@ -183,9 +183,9 @@ async function saveToGithub(){
     html=html.replace(/<script id="catalog-data" type="application\/json">[\s\S]*?<\/script>/,`<script id="catalog-data" type="application\/json">${JSON.stringify(watchesWithImages).replace(/<\//g,"<\\/")}<\/script>`);
     await pushToGh('data.json',dataJsonContent);
     await pushToGh('index.html',html);
-    document.getElementById("githubProgress").classList.remove("show");
+    if(progress)progress.classList.remove("show");
     alert('✅ Сохранено!\n\nhttps://'+s.username+'.github.io/'+s.repo+'/');
-  }catch(e){document.getElementById("githubProgress").classList.remove("show");alert('❌ '+e.message);}
+  }catch(e){if(progress)progress.classList.remove("show");alert('❌ '+e.message);}
 }
 
 // ========== ФОРМАТИРОВАНИЕ ==========
@@ -197,18 +197,34 @@ function getFilteredWatches(){let w=loadWatchesSync();if(currentCategory!=="all"
 
 // ========== ЛАЙТБОКС ==========
 let lbImages=[],lbIdx=0,lbArticle="",lbPrice="";
-function openLightbox(images,article,price,startIdx){if(!images?.length)return;lbImages=images;lbIdx=startIdx||0;lbArticle=article||"";lbPrice=price||"";renderLightbox();document.getElementById("lightbox").classList.add("open");document.body.style.overflow="hidden";}
-function closeLightbox(){document.getElementById("lightbox").classList.remove("open");document.body.style.overflow="";}
-function renderLightbox(){document.getElementById("lightboxImg").src=lbImages[lbIdx];document.getElementById("lightboxArticle").textContent=lbArticle?"Артикул: "+lbArticle:"";document.getElementById("lightboxPrice").textContent=lbPrice;const dots=document.getElementById("lightboxDots");if(lbImages.length>1){dots.innerHTML=lbImages.map((_,k)=>`<button class="lightbox-dot${k===lbIdx?' active':''}" data-k="${k}"></button>`).join("");dots.style.display="flex";document.getElementById("lightboxPrev").style.display="flex";document.getElementById("lightboxNext").style.display="flex";dots.querySelectorAll(".lightbox-dot").forEach(d=>d.onclick=()=>{lbIdx=+d.getAttribute("data-k");renderLightbox();});}else{dots.style.display="none";document.getElementById("lightboxPrev").style.display="none";document.getElementById("lightboxNext").style.display="none";}}
+function openLightbox(images,article,price,startIdx){if(!images?.length)return;lbImages=images;lbIdx=startIdx||0;lbArticle=article||"";lbPrice=price||"";renderLightbox();const el=document.getElementById("lightbox");if(el)el.classList.add("open");document.body.style.overflow="hidden";}
+function closeLightbox(){const el=document.getElementById("lightbox");if(el)el.classList.remove("open");document.body.style.overflow="";}
+function renderLightbox(){
+  const img=document.getElementById("lightboxImg");if(img)img.src=lbImages[lbIdx];
+  const art=document.getElementById("lightboxArticle");if(art)art.textContent=lbArticle?"Артикул: "+lbArticle:"";
+  const pr=document.getElementById("lightboxPrice");if(pr)pr.textContent=lbPrice;
+  const dots=document.getElementById("lightboxDots");
+  if(dots&&lbImages.length>1){
+    dots.innerHTML=lbImages.map((_,k)=>`<button class="lightbox-dot${k===lbIdx?' active':''}" data-k="${k}"></button>`).join("");
+    dots.style.display="flex";
+    const prev=document.getElementById("lightboxPrev");if(prev)prev.style.display="flex";
+    const next=document.getElementById("lightboxNext");if(next)next.style.display="flex";
+    dots.querySelectorAll(".lightbox-dot").forEach(d=>d.onclick=()=>{lbIdx=+d.getAttribute("data-k");renderLightbox();});
+  }else{
+    if(dots)dots.style.display="none";
+    const prev=document.getElementById("lightboxPrev");if(prev)prev.style.display="none";
+    const next=document.getElementById("lightboxNext");if(next)next.style.display="none";
+  }
+}
 function lbPrev(){lbIdx=(lbIdx-1+lbImages.length)%lbImages.length;renderLightbox();}
 function lbNext(){lbIdx=(lbIdx+1)%lbImages.length;renderLightbox();}
 
 // ========== МОДАЛКИ ==========
-function openModal(id){document.getElementById(id)?.classList.add("open");}
-function closeModal(id){document.getElementById(id)?.classList.remove("open");}
+function openModal(id){const el=document.getElementById(id);if(el)el.classList.add("open");}
+function closeModal(id){const el=document.getElementById(id);if(el)el.classList.remove("open");}
 
 // ========== ИЗБРАННОЕ МОДАЛКА ==========
-function openFavModal(){const list=document.getElementById("favList"),copyArea=document.getElementById("favCopyArea"),copyBtn=document.getElementById("copyFavBtn");const all=loadWatchesSync();if(!favorites.length){list.innerHTML='<div class="empty-fav">Список пуст.</div>';copyArea.style.display="none";copyBtn.style.display="none";openModal("favModal");return;}let html="",arts=[];favorites.forEach(article=>{const w=all.find(x=>x.article===article);if(w){arts.push(w.article);const img=w.images?.[0]?`<img src="${w.images[0]}" alt="">`:placeholderSVG();html+=`<div class="fav-item"><div class="fav-item-img">${img}</div><div class="fav-item-info"><div class="fav-item-article">${escapeHtml(w.article)}</div><div class="fav-item-desc">${escapeHtml(w.name||w.desc)}</div><div class="fav-item-price">${fmtPrice(w.price)}</div></div><button class="fav-remove" data-article="${escapeHtml(w.article)}">×</button></div>`;}});list.innerHTML=html;copyArea.textContent=arts.join(", ");copyArea.style.display="block";copyBtn.style.display="inline-block";list.querySelectorAll(".fav-remove").forEach(b=>b.onclick=()=>toggleFav(b.getAttribute("data-article")));openModal("favModal");}
+function openFavModal(){const list=document.getElementById("favList"),copyArea=document.getElementById("favCopyArea"),copyBtn=document.getElementById("copyFavBtn");const all=loadWatchesSync();if(!favorites.length){if(list)list.innerHTML='<div class="empty-fav">Список пуст.</div>';if(copyArea)copyArea.style.display="none";if(copyBtn)copyBtn.style.display="none";openModal("favModal");return;}let html="",arts=[];favorites.forEach(article=>{const w=all.find(x=>x.article===article);if(w){arts.push(w.article);const img=w.images?.[0]?`<img src="${w.images[0]}" alt="">`:placeholderSVG();html+=`<div class="fav-item"><div class="fav-item-img">${img}</div><div class="fav-item-info"><div class="fav-item-article">${escapeHtml(w.article)}</div><div class="fav-item-desc">${escapeHtml(w.name||w.desc)}</div><div class="fav-item-price">${fmtPrice(w.price)}</div></div><button class="fav-remove" data-article="${escapeHtml(w.article)}">×</button></div>`;}});if(list)list.innerHTML=html;if(copyArea){copyArea.textContent=arts.join(", ");copyArea.style.display="block";}if(copyBtn)copyBtn.style.display="inline-block";if(list)list.querySelectorAll(".fav-remove").forEach(b=>b.onclick=()=>toggleFav(b.getAttribute("data-article")));openModal("favModal");}
 function fallbackCopy(text){const ta=document.createElement("textarea");ta.value=text;ta.style.cssText="position:fixed;left:-9999px";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");}catch(e){}document.body.removeChild(ta);const btn=document.getElementById("copyFavBtn");if(btn){btn.textContent="✅ Скопировано!";setTimeout(()=>btn.textContent="📋 Скопировать артикулы",2000);}}
 
 // ========== РЕНДЕР ==========
@@ -227,30 +243,29 @@ function updateAuthUI(){
   
   if(isAuthed){
     area.innerHTML=`<button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn btn-gold" id="addBtn">+ Добавить</button><button class="btn btn-gold" id="githubBtnTop">🚀 На GitHub</button><button class="btn" id="excelBtnTop">📥 Excel</button><button class="btn" id="uploadExcelBtnTop">📤 Загрузить</button><button class="btn" id="saveBtnTop">💾 HTML</button><button class="btn" id="logoutBtn">Выйти</button>`;
-    document.getElementById("addBtn").onclick=openAddModal;
-    document.getElementById("githubBtnTop").onclick=saveToGithub;
-    document.getElementById("excelBtnTop").onclick=downloadExcel;
-    document.getElementById("uploadExcelBtnTop").onclick=uploadExcel;
-    document.getElementById("saveBtnTop").onclick=saveToFile;
-    document.getElementById("logoutBtn").onclick=()=>{isAuthed=false;updateAuthUI();render();};
-    document.getElementById("favBtnAuthed").onclick=openFavModal;
-    document.getElementById("saveBanner").style.display="block";
+    const addBtn=document.getElementById("addBtn");if(addBtn)addBtn.onclick=openAddModal;
+    const ghBtn=document.getElementById("githubBtnTop");if(ghBtn)ghBtn.onclick=saveToGithub;
+    const exBtn=document.getElementById("excelBtnTop");if(exBtn)exBtn.onclick=downloadExcel;
+    const upBtn=document.getElementById("uploadExcelBtnTop");if(upBtn)upBtn.onclick=uploadExcel;
+    const svBtn=document.getElementById("saveBtnTop");if(svBtn)svBtn.onclick=saveToFile;
+    const loBtn=document.getElementById("logoutBtn");if(loBtn)loBtn.onclick=()=>{isAuthed=false;updateAuthUI();render();};
+    const fvBtn=document.getElementById("favBtnAuthed");if(fvBtn)fvBtn.onclick=openFavModal;
+    const banner=document.getElementById("saveBanner");if(banner)banner.style.display="block";
   }else{
     area.innerHTML=`<button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn" id="loginBtn">Войти</button>`;
-    document.getElementById("loginBtn").onclick=()=>openModal("loginModal");
-    document.getElementById("favBtnGuest").onclick=openFavModal;
-    document.getElementById("saveBanner").style.display="none";
-    // ПРИНУДИТЕЛЬНО убираем класс authed
+    const liBtn=document.getElementById("loginBtn");if(liBtn)liBtn.onclick=()=>openModal("loginModal");
+    const fvBtn=document.getElementById("favBtnGuest");if(fvBtn)fvBtn.onclick=openFavModal;
+    const banner=document.getElementById("saveBanner");if(banner)banner.style.display="none";
     document.body.classList.remove("authed");
   }
 }
 
 // ========== ДОБАВЛЕНИЕ/РЕДАКТИРОВАНИЕ ==========
 let pendingAddImages=[];
-function openAddModal(){pendingAddImages=[];document.getElementById("fCategory").value="men";"fArticle fName fDesc fPrice fQty fImgFile".split(" ").forEach(id=>document.getElementById(id).value="");document.getElementById("addErr").textContent="";renderAddThumbs();openModal("addModal");}
+function openAddModal(){pendingAddImages=[];const cat=document.getElementById("fCategory");if(cat)cat.value="men";"fArticle fName fDesc fPrice fQty fImgFile".split(" ").forEach(id=>{const el=document.getElementById(id);if(el)el.value="";});const err=document.getElementById("addErr");if(err)err.textContent="";renderAddThumbs();openModal("addModal");}
 function renderAddThumbs(){const box=document.getElementById("addThumbs");if(!box)return;box.innerHTML=pendingAddImages.map((s,k)=>`<div class="thumb-item"><img src="${s}"><button class="thumb-remove" data-k="${k}">×</button></div>`).join("");box.querySelectorAll(".thumb-remove").forEach(b=>b.onclick=()=>{pendingAddImages.splice(+b.getAttribute("data-k"),1);renderAddThumbs();});}
 let editingIndex=-1,editExisting=[],editNew=[];
-function openEdit(i){const w=loadWatchesSync()[i];if(!w)return;editingIndex=i;editExisting=(w.images||[]).slice();editNew=[];document.getElementById("eCategory").value=w.category||"men";document.getElementById("eArticle").value=w.article||"";document.getElementById("eName").value=w.name||"";document.getElementById("eDesc").value=w.desc||"";document.getElementById("ePrice").value=w.price;document.getElementById("eQty").value=w.qty;document.getElementById("eImgFile").value="";document.getElementById("editErr").textContent="";renderEditThumbs();renderEditNewThumbs();openModal("editModal");}
+function openEdit(i){const w=loadWatchesSync()[i];if(!w)return;editingIndex=i;editExisting=(w.images||[]).slice();editNew=[];const ec=document.getElementById("eCategory");if(ec)ec.value=w.category||"men";const ea=document.getElementById("eArticle");if(ea)ea.value=w.article||"";const en=document.getElementById("eName");if(en)en.value=w.name||"";const ed=document.getElementById("eDesc");if(ed)ed.value=w.desc||"";const ep=document.getElementById("ePrice");if(ep)ep.value=w.price;const eq=document.getElementById("eQty");if(eq)eq.value=w.qty;const ei=document.getElementById("eImgFile");if(ei)ei.value="";const ee=document.getElementById("editErr");if(ee)ee.textContent="";renderEditThumbs();renderEditNewThumbs();openModal("editModal");}
 function renderEditThumbs(){const box=document.getElementById("editThumbs");if(!box)return;if(!editExisting.length){box.innerHTML='<div style="color:#8a8a94;font-size:12px">Нет фото</div>';return;}box.innerHTML=editExisting.map((s,k)=>`<div class="thumb-item"><img src="${s}"><button class="thumb-remove" data-k="${k}">×</button></div>`).join("");box.querySelectorAll(".thumb-remove").forEach(b=>b.onclick=()=>{if(confirm('Удалить фото?')){editExisting.splice(+b.getAttribute("data-k"),1);renderEditThumbs();}});}
 function renderEditNewThumbs(){const box=document.getElementById("editNewThumbs");if(!box)return;box.innerHTML=editNew.map((s,k)=>`<div class="thumb-item"><img src="${s}"><button class="thumb-remove" data-k="${k}">×</button></div>`).join("");box.querySelectorAll(".thumb-remove").forEach(b=>b.onclick=()=>{editNew.splice(+b.getAttribute("data-k"),1);renderEditNewThumbs();});}
 
@@ -258,77 +273,86 @@ function renderEditNewThumbs(){const box=document.getElementById("editNewThumbs"
 function setupDragDrop(){document.querySelectorAll('.file-input').forEach(zone=>{zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('dragover');});zone.addEventListener('dragleave',()=>zone.classList.remove('dragover'));zone.addEventListener('drop',async e=>{e.preventDefault();zone.classList.remove('dragover');const files=Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/'));if(!files.length)return;const compressed=await compressFiles(files);const input=zone.querySelector('input[type="file"]');if(input){if(input.id==='fImgFile'){pendingAddImages=pendingAddImages.concat(compressed);renderAddThumbs();}else if(input.id==='eImgFile'){editNew=editNew.concat(compressed);renderEditNewThumbs();}}});});}
 
 // ========== КНОПКА НАВЕРХ ==========
-function setupScrollTop(){const btn=document.getElementById("scrollTopBtn");window.addEventListener('scroll',()=>btn.classList.toggle('show',window.scrollY>500));btn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));}
+function setupScrollTop(){const btn=document.getElementById("scrollTopBtn");if(!btn)return;window.addEventListener('scroll',()=>btn.classList.toggle('show',window.scrollY>500));btn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));}
 
 // ========== ПОИСК ==========
-function setupSearch(){document.getElementById("searchInput").addEventListener('input',function(){searchQuery=this.value.trim();render();});}
+function setupSearch(){const inp=document.getElementById("searchInput");if(!inp)return;inp.addEventListener('input',function(){searchQuery=this.value.trim();render();});}
 
 // ========== ПРЕЛОАДЕР ==========
-function hidePreloader(){setTimeout(()=>document.getElementById('preloader').classList.add('hidden'),500);}
+function hidePreloader(){setTimeout(()=>{const el=document.getElementById('preloader');if(el)el.classList.add('hidden');},500);}
 
-// ========== ИНИЦИАЛИЗАЦИЯ (ИСПРАВЛЕНО) ==========
+// ========== ИНИЦИАЛИЗАЦИЯ ==========
 async function initApp(){
-  // ПРИНУДИТЕЛЬНЫЙ СБРОС ВСЕХ АВТОРИЗАЦИЙ
-  isAuthed = false;
-  
-  // Очищаем всё, что могло остаться
+  isAuthed=false;
   sessionStorage.clear();
   if(canUseStorage){
+    for(let i=5;i<=17;i++){try{localStorage.removeItem('mdt_admin_auth_v'+i);}catch(e){}}
     try{localStorage.removeItem('mdt_authed');}catch(e){}
-    try{localStorage.removeItem('mdt_admin_auth_v5');}catch(e){}
-    try{localStorage.removeItem('mdt_admin_auth_v6');}catch(e){}
-    try{localStorage.removeItem('mdt_admin_auth_v7');}catch(e){}
-    try{localStorage.removeItem('mdt_admin_auth_v8');}catch(e){}
-    try{localStorage.removeItem('mdt_admin_auth_v9');}catch(e){}
-    try{localStorage.removeItem('mdt_admin_auth_v10');}catch(e){}
-    try{localStorage.removeItem('mdt_admin_auth_v11');}catch(e){}
-    try{localStorage.removeItem('mdt_admin_auth_v12');}catch(e){}
-    try{localStorage.removeItem('mdt_admin_auth_v13');}catch(e){}
-    try{localStorage.removeItem('mdt_admin_auth_v14');}catch(e){}
-    try{localStorage.removeItem('mdt_admin_auth_v15');}catch(e){}
-    try{localStorage.removeItem('mdt_admin_auth_v16');}catch(e){}
   }
-  
-  console.log('🔒 Все авторизации сброшены. Сайт открыт как гость.');
-  
-  favorites = loadFavorites();
+  console.log('🔒 Гость');
+  favorites=loadFavorites();
   saveFavorites();
   updateAuthUI();
   await render();
   hidePreloader();
 }
 
-// ========== ОБРАБОТЧИКИ ==========
+// ========== ОБРАБОТЧИКИ (БЕЗОПАСНЫЕ) ==========
 function bindEvents(){
-  document.getElementById("lightboxClose").onclick=closeLightbox;
-  document.getElementById("lightboxPrev").onclick=e=>{e.stopPropagation();lbPrev();};
-  document.getElementById("lightboxNext").onclick=e=>{e.stopPropagation();lbNext();};
-  document.getElementById("lightbox").onclick=e=>{if(e.target===e.currentTarget)closeLightbox();};
-  document.getElementById("copyFavBtn").onclick=function(){const t=document.getElementById("favCopyArea").textContent;(navigator.clipboard?.writeText?navigator.clipboard.writeText(t).then(()=>{this.textContent="✅ Скопировано!";setTimeout(()=>this.textContent="📋 Скопировать артикулы",2000);}):Promise.reject()).catch(()=>fallbackCopy(t));};
-  document.getElementById("closeFav").onclick=()=>closeModal("favModal");
-  document.getElementById("closeLogin").onclick=()=>closeModal("loginModal");
-  document.getElementById("closeAdd").onclick=()=>closeModal("addModal");
-  document.getElementById("closeEdit").onclick=()=>closeModal("editModal");
-  document.getElementById("closeGithub").onclick=()=>closeModal("githubModal");
-  document.getElementById("doLogin").onclick=function(){const err=document.getElementById("loginErr");err.textContent="";if(document.getElementById("loginUser").value.trim()===AUTH.user&&document.getElementById("loginPass").value===AUTH.pass){isAuthed=true;closeModal("loginModal");document.getElementById("loginUser").value="";document.getElementById("loginPass").value="";updateAuthUI();render();}else err.textContent="Неверный логин или пароль";};
-  document.getElementById("fImgFile").onchange=async function(){const files=Array.from(this.files||[]);if(!files.length)return;pendingAddImages=pendingAddImages.concat(await compressFiles(files));renderAddThumbs();this.value="";};
-  document.getElementById("doAdd").onclick=function(){const err=document.getElementById("addErr");err.textContent="";const name=document.getElementById("fName").value.trim(),desc=document.getElementById("fDesc").value.trim(),price=document.getElementById("fPrice").value;if(!name&&!desc){err.textContent="Укажите название или описание";return;}if(price===""||+price<0){err.textContent="Укажите цену";return;}loadWatchesSync().push({category:document.getElementById("fCategory").value,article:document.getElementById("fArticle").value.trim(),name,desc,price:+price,qty:document.getElementById("fQty").value===""?0:+document.getElementById("fQty").value,images:pendingAddImages.slice()});saveWatches(loadWatchesSync());closeModal("addModal");render();};
-  document.getElementById("eImgFile").onchange=async function(){const files=Array.from(this.files||[]);if(!files.length)return;editNew=editNew.concat(await compressFiles(files));renderEditNewThumbs();this.value="";};
-  document.getElementById("doEdit").onclick=function(){const err=document.getElementById("editErr");err.textContent="";const name=document.getElementById("eName").value.trim(),desc=document.getElementById("eDesc").value.trim(),price=document.getElementById("ePrice").value;if(!name&&!desc){err.textContent="Укажите название или описание";return;}if(price===""||+price<0){err.textContent="Укажите цену";return;}const list=loadWatchesSync();if(!list[editingIndex]){err.textContent="Карточка не найдена";return;}list[editingIndex]={...list[editingIndex],category:document.getElementById("eCategory").value,article:document.getElementById("eArticle").value.trim(),name,desc,price:+price,qty:document.getElementById("eQty").value===""?0:+document.getElementById("eQty").value,images:editExisting.concat(editNew)};saveWatches(list);closeModal("editModal");render();};
-  document.getElementById("saveBtn").onclick=saveToFile;
-  document.getElementById("excelBtn").onclick=downloadExcel;
-  document.getElementById("uploadExcelBtn").onclick=uploadExcel;
-  document.getElementById("excelFileInput").onchange=handleExcelUpload;
-  document.getElementById("githubBtn").onclick=saveToGithub;
-  document.getElementById("saveGithub").onclick=async function(){const err=document.getElementById("githubErr");const settings={username:document.getElementById("ghUser").value.trim(),repo:document.getElementById("ghRepo").value.trim(),token:document.getElementById("ghToken").value.trim(),branch:document.getElementById("ghBranch").value.trim()||"main"};if(!settings.username||!settings.repo||!settings.token){err.textContent="Заполните все поля";return;}if(!settings.token.startsWith('ghp_')&&!settings.token.startsWith('github_pat_')){err.textContent="Токен должен начинаться с ghp_ или github_pat_";return;}localStorage.setItem(GH_KEY,JSON.stringify(settings));err.textContent="";closeModal("githubModal");await saveToGithub();};
-  document.getElementById("categoryMenu").onclick=function(e){const btn=e.target.closest(".cat-btn");if(!btn)return;document.querySelectorAll(".cat-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");currentCategory=btn.getAttribute("data-cat");render();};
-  document.getElementById("applyFilter").onclick=()=>{const min=document.getElementById("priceMin").value,max=document.getElementById("priceMax").value;priceFilterMin=min===""?null:+min;priceFilterMax=max===""?null:+max;render();};
-  document.getElementById("resetFilter").onclick=()=>{document.getElementById("priceMin").value="";document.getElementById("priceMax").value="";priceFilterMin=null;priceFilterMax=null;render();};
-  const gs=getGhSettings();if(gs){document.getElementById("ghUser").value=gs.username||"";document.getElementById("ghRepo").value=gs.repo||"";document.getElementById("ghToken").value=gs.token||"";document.getElementById("ghBranch").value=gs.branch||"main";}
+  const $=id=>document.getElementById(id);
+  const on=(id,ev,fn)=>{const el=$(id);if(el)el[ev]=fn;};
+  
+  on("lightboxClose","onclick",closeLightbox);
+  on("lightboxPrev","onclick",e=>{e.stopPropagation();lbPrev();});
+  on("lightboxNext","onclick",e=>{e.stopPropagation();lbNext();});
+  const lb=$("lightbox");if(lb)lb.onclick=e=>{if(e.target===e.currentTarget)closeLightbox();};
+  
+  on("copyFavBtn","onclick",function(){const t=$("favCopyArea");if(!t)return;const text=t.textContent;(navigator.clipboard?.writeText?navigator.clipboard.writeText(text).then(()=>{this.textContent="✅ Скопировано!";setTimeout(()=>this.textContent="📋 Скопировать артикулы",2000);}):Promise.reject()).catch(()=>fallbackCopy(text));});
+  on("closeFav","onclick",()=>closeModal("favModal"));
+  on("closeLogin","onclick",()=>closeModal("loginModal"));
+  on("closeAdd","onclick",()=>closeModal("addModal"));
+  on("closeEdit","onclick",()=>closeModal("editModal"));
+  on("closeGithub","onclick",()=>closeModal("githubModal"));
+  
+  on("doLogin","onclick",function(){const err=$("loginErr");if(err)err.textContent="";const u=$("loginUser"),p=$("loginPass");if(!u||!p)return;if(u.value.trim()===AUTH.user&&p.value===AUTH.pass){isAuthed=true;closeModal("loginModal");u.value="";p.value="";updateAuthUI();render();}else if(err)err.textContent="Неверный логин или пароль";});
+  on("fImgFile","onchange",async function(){const files=Array.from(this.files||[]);if(!files.length)return;pendingAddImages=pendingAddImages.concat(await compressFiles(files));renderAddThumbs();this.value="";});
+  on("doAdd","onclick",function(){const err=$("addErr");if(err)err.textContent="";const name=$("fName")?.value?.trim()||'',desc=$("fDesc")?.value?.trim()||'',price=$("fPrice")?.value||'';if(!name&&!desc){if(err)err.textContent="Укажите название или описание";return;}if(price===""||+price<0){if(err)err.textContent="Укажите цену";return;}loadWatchesSync().push({category:$("fCategory")?.value||'men',article:$("fArticle")?.value?.trim()||'',name,desc,price:+price,qty:$("fQty")?.value===""?0:+$("fQty").value,images:pendingAddImages.slice()});saveWatches(loadWatchesSync());closeModal("addModal");render();});
+  on("eImgFile","onchange",async function(){const files=Array.from(this.files||[]);if(!files.length)return;editNew=editNew.concat(await compressFiles(files));renderEditNewThumbs();this.value="";});
+  on("doEdit","onclick",function(){const err=$("editErr");if(err)err.textContent="";const name=$("eName")?.value?.trim()||'',desc=$("eDesc")?.value?.trim()||'',price=$("ePrice")?.value||'';if(!name&&!desc){if(err)err.textContent="Укажите название или описание";return;}if(price===""||+price<0){if(err)err.textContent="Укажите цену";return;}const list=loadWatchesSync();if(!list[editingIndex]){if(err)err.textContent="Карточка не найдена";return;}list[editingIndex]={...list[editingIndex],category:$("eCategory")?.value||'men',article:$("eArticle")?.value?.trim()||'',name,desc,price:+price,qty:$("eQty")?.value===""?0:+$("eQty").value,images:editExisting.concat(editNew)};saveWatches(list);closeModal("editModal");render();});
+  
+  on("saveBtn","onclick",saveToFile);
+  on("excelBtn","onclick",downloadExcel);
+  on("uploadExcelBtn","onclick",uploadExcel);
+  on("excelFileInput","onchange",handleExcelUpload);
+  on("githubBtn","onclick",saveToGithub);
+  
+  // Кнопка в модалке GitHub (saveGithub) — обрабатывается здесь
+  on("saveGithub","onclick",async function(){
+    const err=$("githubErr");
+    const u=$("ghUser"),r=$("ghRepo"),t=$("ghToken"),b=$("ghBranch");
+    if(!u||!r||!t||!b)return;
+    const s={username:u.value.trim(),repo:r.value.trim(),token:t.value.trim(),branch:b.value.trim()||"main"};
+    if(!s.username||!s.repo||!s.token){if(err)err.textContent="Заполните все поля";return;}
+    if(!s.token.startsWith('ghp_')&&!s.token.startsWith('github_pat_')){if(err)err.textContent="Токен должен начинаться с ghp_ или github_pat_";return;}
+    localStorage.setItem(GH_KEY,JSON.stringify(s));
+    if(err)err.textContent="";
+    closeModal("githubModal");
+    await saveToGithub();
+  });
+  
+  const catMenu=$("categoryMenu");
+  if(catMenu)catMenu.onclick=function(e){const btn=e.target.closest(".cat-btn");if(!btn)return;document.querySelectorAll(".cat-btn").forEach(b=>b.classList.remove("active"));btn.classList.add("active");currentCategory=btn.getAttribute("data-cat");render();};
+  
+  on("applyFilter","onclick",()=>{const min=$("priceMin")?.value||'',max=$("priceMax")?.value||'';priceFilterMin=min===""?null:+min;priceFilterMax=max===""?null:+max;render();});
+  on("resetFilter","onclick",()=>{const mn=$("priceMin"),mx=$("priceMax");if(mn)mn.value="";if(mx)mx.value="";priceFilterMin=null;priceFilterMax=null;render();});
+  
+  const gs=getGhSettings();
+  if(gs){const u=$("ghUser");if(u)u.value=gs.username||"";const r=$("ghRepo");if(r)r.value=gs.repo||"";const t=$("ghToken");if(t)t.value=gs.token||"";const b=$("ghBranch");if(b)b.value=gs.branch||"main";}
+  
   setupDragDrop();setupScrollTop();setupSearch();
 }
 
 // ========== ЗАПУСК ==========
-console.log('🚀 TEMPUS KZ v17 — гарантированный гость при запуске');
+console.log('🚀 TEMPUS KZ v17');
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{bindEvents();initApp();});
 else{bindEvents();initApp();}
