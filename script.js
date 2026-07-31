@@ -1,6 +1,6 @@
 // ========== ЖЁСТКАЯ ОЧИСТКА КЕША + ПРИНУДИТЕЛЬНАЯ ПЕРЕЗАГРУЗКА ==========
 (function(){
-  const CURRENT_VERSION = '2.0.7';
+  const CURRENT_VERSION = '2.0.6';
   const VERSION_KEY = 'tempus_kz_ver';
   const RELOAD_KEY = 'tempus_kz_reloaded';
   
@@ -124,7 +124,7 @@ function hardReset() {
     
     if (favs) localStorage.setItem('mdt_favorites_v1', favs);
     if (github) localStorage.setItem('mdt_github_v17', github);
-    localStorage.setItem('tempus_kz_ver', '2.0.7');
+    localStorage.setItem('tempus_kz_ver', '2.0.6');
     
     window.location.reload(true);
   }
@@ -240,108 +240,10 @@ function handleExcelUpload(event) {
 function parseXmlExcel(xml) { const rows = []; const rr = /<Row[^>]*>([\s\S]*?)<\/Row>/gi; let rm; while ((rm = rr.exec(xml)) !== null) { const cells = []; const cr = /<Cell[^>]*>(?:<Data[^>]*>)?([\s\S]*?)(?:<\/Data>)?<\/Cell>/gi; let cm; while ((cm = cr.exec(rm[1])) !== null) { let v = (cm[1] || '').replace(/<[^>]+>/g, '').trim(); v = v.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"'); cells.push(v); } if (cells.length) rows.push(cells); } return rows; }
 function parseCSV(csv) { const rows = []; csv.split(/\r?\n/).forEach(line => { if (!line.trim()) return; const cells = []; let cur = '', inQ = false; for (const ch of line) { if (ch === '"') inQ = !inQ; else if ((ch === ';' || ch === ',') && !inQ) { cells.push(cur.trim()); cur = ''; } else cur += ch; } cells.push(cur.trim()); if (cells.length) rows.push(cells); }); return rows; }
 
-// ========== GITHUB (ПОЛНОСТЬЮ ИСПРАВЛЕНО) ==========
+// ========== GITHUB ==========
 function getGhSettings() { try { const s = localStorage.getItem(GH_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
-
-async function pushToGh(path, content) {
-  const s = getGhSettings();
-  if (!s?.token?.trim()) throw new Error('Настройте GitHub');
-  
-  const token = s.token.trim();
-  const apiUrl = `https://api.github.com/repos/${s.username}/${s.repo}/contents/${path}`;
-  const encoded = btoa(unescape(encodeURIComponent(content)));
-  
-  console.log(`📤 Отправка ${path}...`);
-  
-  // Всегда получаем актуальный SHA
-  let sha = null;
-  try {
-    const response = await fetch(apiUrl + '?ref=' + (s.branch || 'main'), {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/vnd.github.v3+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'Cache-Control': 'no-cache'
-      }
-    });
-    
-    if (response.ok) {
-      sha = (await response.json()).sha;
-      console.log(`✅ SHA: ${sha.substring(0, 7)}`);
-    } else if (response.status === 404) {
-      console.log(`📄 Файл будет создан`);
-    } else if (response.status === 401) {
-      throw new Error('Неверный токен');
-    }
-  } catch (e) {
-    if (e.message === 'Неверный токен') throw e;
-    console.warn(`⚠️ Ошибка SHA:`, e.message);
-  }
-  
-  const body = {
-    message: `Update ${path} [${new Date().toLocaleString('ru-RU')}]`,
-    content: encoded,
-    branch: s.branch || 'main'
-  };
-  if (sha) body.sha = sha;
-  
-  const putResponse = await fetch(apiUrl, {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json',
-      'X-GitHub-Api-Version': '2022-11-28'
-    },
-    body: JSON.stringify(body)
-  });
-  
-  if (!putResponse.ok) {
-    const errData = await putResponse.json().catch(() => ({}));
-    if (putResponse.status === 401) throw new Error('Неверный токен');
-    if (putResponse.status === 422) throw new Error('Файл слишком большой');
-    if (putResponse.status === 409) throw new Error('Конфликт версий. Попробуйте ещё раз.');
-    throw new Error(errData.message || `HTTP ${putResponse.status}`);
-  }
-  
-  console.log(`✅ ${path} отправлен`);
-}
-
-async function saveToGithub() {
-  const s = getGhSettings();
-  if (!s?.token?.trim()) {
-    openModal("githubModal");
-    return;
-  }
-  
-  const progress = document.getElementById("githubProgress");
-  if (progress) progress.classList.add("show");
-  
-  try {
-    const watches = loadWatchesSync();
-    const watchesWithImages = watches.map(w => ({ ...w, images: w.images || [] }));
-    catalogData = watchesWithImages;
-    if (canUseStorage) localStorage.setItem(LS_KEY, JSON.stringify(catalogData));
-    
-    const dataJsonContent = JSON.stringify(watchesWithImages, null, 2);
-    let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
-    html = html.replace(
-      /<script id="catalog-data" type="application\/json">[\s\S]*?<\/script>/,
-      `<script id="catalog-data" type="application\/json">${JSON.stringify(watchesWithImages).replace(/<\//g, "<\\/")}<\/script>`
-    );
-    
-    await pushToGh('data.json', dataJsonContent);
-    await pushToGh('index.html', html);
-    
-    if (progress) progress.classList.remove("show");
-    alert('✅ Сохранено на GitHub!\n\nhttps://' + s.username + '.github.io/' + s.repo + '/');
-  } catch (e) {
-    if (progress) progress.classList.remove("show");
-    console.error('❌ Ошибка GitHub:', e);
-    alert('❌ ' + e.message);
-  }
-}
+async function pushToGh(path, content) { const s = getGhSettings(); if (!s?.token?.trim()) throw new Error('Настройте GitHub'); const token = s.token.trim(), apiUrl = `https://api.github.com/repos/${s.username}/${s.repo}/contents/${path}`; const encoded = btoa(unescape(encodeURIComponent(content))); let sha = null; try { const r = await fetch(apiUrl + '?ref=' + (s.branch || 'main'), { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'X-GitHub-Api-Version': '2022-11-28' } }); if (r.ok) sha = (await r.json()).sha; else if (r.status === 401) throw new Error('Неверный токен'); } catch (e) { if (e.message === 'Неверный токен') throw e; } const body = { message: `Update ${path}`, content: encoded, branch: s.branch || 'main' }; if (sha) body.sha = sha; const r = await fetch(apiUrl, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' }, body: JSON.stringify(body) }); if (!r.ok) { const err = await r.json().catch(() => ({})); if (r.status === 401) throw new Error('Неверный токен'); throw new Error(err.message || 'HTTP ' + r.status); } }
+async function saveToGithub() { const s = getGhSettings(); if (!s?.token?.trim()) { openModal("githubModal"); return; } try { const watches = loadWatchesSync(); const dataJsonContent = JSON.stringify(watches, null, 2); let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML; html = html.replace(/<script id="catalog-data" type="application\/json">[\s\S]*?<\/script>/, `<script id="catalog-data" type="application\/json">${JSON.stringify(watches).replace(/<\//g, "<\\/")}<\/script>`); await pushToGh('data.json', dataJsonContent); await pushToGh('index.html', html); alert('✅ Сохранено!\n\nhttps://' + s.username + '.github.io/' + s.repo + '/'); } catch (e) { alert('❌ ' + e.message); } }
 
 // ========== ФОРМАТИРОВАНИЕ ==========
 function fmtPrice(n) { return Number(n).toLocaleString("ru-RU") + " ₸"; }
@@ -407,7 +309,7 @@ function initCardEvents() { document.querySelectorAll(".card").forEach(card => {
 // ========== СЛАЙДЕРЫ ==========
 function initSliders() { document.querySelectorAll("[data-slider]").forEach(slider => { const slides = slider.querySelector(".slides"), dots = slider.querySelectorAll(".slider-dot"), arrows = slider.querySelectorAll(".slider-arrow"); if (!slides || slides.children.length < 2) return; const total = slides.children.length; let idx = 0; let counter = slider.querySelector('.photo-counter'); if (!counter) { counter = document.createElement('div'); counter.className = 'photo-counter'; slider.appendChild(counter); } const go = n => { idx = (n + total) % total; if (idx < 0) idx = total - 1; slides.style.transform = `translateX(-${idx * 100}%)`; dots.forEach((d, k) => d.classList.toggle("active", k === idx)); counter.textContent = `${idx + 1}/${total}`; }; counter.textContent = `1/${total}`; arrows.forEach(a => a.onclick = e => { e.stopPropagation(); go(idx + parseInt(a.getAttribute("data-dir"))); }); dots.forEach((d, j) => d.onclick = e => { e.stopPropagation(); go(j); }); let sx = 0, dx = 0, dragging = false; slides.addEventListener("touchstart", e => { sx = e.touches[0].clientX; dx = 0; dragging = true; slides.style.transition = "none"; }, { passive: true }); slides.addEventListener("touchmove", e => { if (!dragging) return; dx = e.touches[0].clientX - sx; slides.style.transform = `translateX(${-idx * slides.offsetWidth + dx}px)`; }, { passive: true }); slides.addEventListener("touchend", () => { if (!dragging) return; dragging = false; slides.style.transition = "transform 0.3s ease-out"; if (dx < -slides.offsetWidth * 0.2) go(idx + 1); else if (dx > slides.offsetWidth * 0.2) go(idx - 1); else go(idx); }, { passive: true }); }); }
 
-// ========== АВТОРИЗАЦИЯ ==========
+// ========== АВТОРИЗАЦИЯ (ИСПРАВЛЕНО) ==========
 function updateAuthUI() {
   const area = document.getElementById("authArea");
   if (!area) return;
@@ -417,7 +319,7 @@ function updateAuthUI() {
     area.innerHTML = `
       <button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button>
       <button class="btn btn-gold" id="addBtn">+ Добавить</button>
-      <button class="btn btn-gold" id="githubBtnTop">🚀СОХРАНИТЬ!!!</button>
+      <button class="btn btn-gold" id="githubBtnTop">🚀 СОХРАНИТЬ!!!</button>
       <button class="btn" id="excelBtnTop">📥Скачать Excel</button>
       <button class="btn" id="uploadExcelBtnTop">📤Загрузить свой Excel</button>
       <button class="btn" id="hardResetBtn" style="background:#c0392b;color:#fff;border:1px solid #c0392b;">🧹 Сброс</button>
@@ -548,6 +450,6 @@ function bindEvents() {
 }
 
 // ========== ЗАПУСК ==========
-console.log('🚀 TEMPUS KZ v2.0.7 — всё исправлено');
+console.log('🚀 TEMPUS KZ v2.0.6 — кнопка сброса кеша');
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { bindEvents(); initApp(); });
 else { bindEvents(); initApp(); }
