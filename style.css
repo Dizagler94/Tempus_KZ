@@ -264,3 +264,31 @@ footer{text-align:center;padding:30px 20px;color:#8a8a94;font-size:12px;border-t
   font-size: 12px;
   margin-left: 10px;
 }
+/* ========== СОРТИРОВКА ========== */
+.sort-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.sort-btn {
+  background: transparent;
+  border: 1px solid rgba(212, 175, 55, 0.18);
+  color: #8a8a94;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  text-transform: uppercase;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+.sort-btn:hover {
+  border-color: #d4af37;
+  color: #d4af37;
+}
+.sort-btn.active {
+  background: #d4af37;
+  color: #1a1a1a;
+  border-color: #d4af37;
+  font-weight: 600;
+}
