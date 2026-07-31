@@ -1,6 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru">
-<head>
+<html lang="ru"><head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0a0a0c">
@@ -112,7 +111,7 @@
 }
 </style>
 </head>
-<body>
+<body class="authed">
 
 <header>
   <div class="nav">
@@ -123,26 +122,23 @@
         <small>Наручные часы | Кокшетау</small>
       </div>
     </div>
-    <div class="nav-actions" id="authArea">
-      <button class="btn btn-fav" id="favBtn">❤️ Избранное<span class="fav-count" id="favCount">0</span></button>
-      <button class="btn" id="loginBtn">Войти</button>
-    </div>
+    <div class="nav-actions" id="authArea"><button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count" style="animation: 0.3s ease 0s 1 normal none running countPop;">0</span></button><button class="btn btn-gold" id="addBtn">+ Добавить</button><button class="btn" id="logoutBtn">Выйти</button></div>
   </div>
 </header>
 
-<section class="hero">
+<section class="hero" style="display: none;">
   <h1>Tempus KZ — премиальные часы в сердце Казахстана</h1>
   <div class="divider"></div>
   <p>Изысканные наручные часы — от швейцарской классики до современных шедевров.</p>
 </section>
 
-<div class="category-menu" id="categoryMenu">
+<div class="category-menu" id="categoryMenu" style="display: none;">
   <button class="cat-btn active" data-cat="all">Все модели</button>
   <button class="cat-btn" data-cat="men">Мужские часы</button>
   <button class="cat-btn" data-cat="women">Женские часы</button>
 </div>
 
-<div class="filter-bar">
+<div class="filter-bar" style="display: none;">
   <div class="filter-group">
     <label>Цена от:</label>
     <input type="number" id="priceMin" placeholder="0" min="0">
@@ -155,9 +151,9 @@
   <button class="reset-btn" id="resetFilter">Сбросить</button>
 </div>
 
-<div class="results-info" id="resultsInfo"></div>
+<div class="results-info" id="resultsInfo" style="display: none;"></div>
 
-<div class="save-banner" id="saveBanner">
+<div class="save-banner" id="saveBanner" style="display: none;">
   <div class="inner">
     <span>⚠️ Изменения пока <b>только в браузере</b>. Нажмите кнопку, чтобы сохранить.</span>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -167,10 +163,32 @@
   </div>
 </div>
 
-<main class="grid" id="grid"></main>
+<main class="grid" id="grid" style="display: none;"><article class="card" data-article="TK-2026-001">
+      <button class="fav-btn" data-fav="TK-2026-001">🤍</button>
+      <div class="card-actions"><button class="icon-btn edit" data-edit-article="TK-2026-001">✎</button><button class="icon-btn del" data-del-article="TK-2026-001">✕</button></div>
+      <div class="slider" data-slider="0"><div class="slides"><div class="placeholder"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d98a"></stop><stop offset="100%" stop-color="#d4af37"></stop></linearGradient></defs><circle cx="50" cy="50" r="28" fill="none" stroke="url(#g)" stroke-width="2.5"></circle><circle cx="50" cy="50" r="22" fill="none" stroke="url(#g)" stroke-width="1" opacity=".6"></circle><line x1="50" y1="50" x2="50" y2="34" stroke="url(#g)" stroke-width="2" stroke-linecap="round"></line><line x1="50" y1="50" x2="62" y2="50" stroke="url(#g)" stroke-width="2" stroke-linecap="round"></line></svg></div></div></div>
+      <div class="body">
+        <div class="article">Артикул: TK-2026-001</div>
+        <p class="name">Хронограф Премиум</p>
+        <p class="desc">Швейцарский механизм, сапфировое стекло, водозащита 100м</p>
+        <div class="price">850&nbsp;000 ₸</div>
+        <div class="stock low">В наличии: 3 шт.</div>
+      </div>
+    </article><article class="card" data-article="TK-2026-002">
+      <button class="fav-btn" data-fav="TK-2026-002">🤍</button>
+      <div class="card-actions"><button class="icon-btn edit" data-edit-article="TK-2026-002">✎</button><button class="icon-btn del" data-del-article="TK-2026-002">✕</button></div>
+      <div class="slider" data-slider="1"><div class="slides"><div class="placeholder"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d98a"></stop><stop offset="100%" stop-color="#d4af37"></stop></linearGradient></defs><circle cx="50" cy="50" r="28" fill="none" stroke="url(#g)" stroke-width="2.5"></circle><circle cx="50" cy="50" r="22" fill="none" stroke="url(#g)" stroke-width="1" opacity=".6"></circle><line x1="50" y1="50" x2="50" y2="34" stroke="url(#g)" stroke-width="2" stroke-linecap="round"></line><line x1="50" y1="50" x2="62" y2="50" stroke="url(#g)" stroke-width="2" stroke-linecap="round"></line></svg></div></div></div>
+      <div class="body">
+        <div class="article">Артикул: TK-2026-002</div>
+        
+        <p class="desc"></p>
+        <div class="price">0 ₸</div>
+        <div class="stock out">Нет в наличии</div>
+      </div>
+    </article></main>
 
 <!-- ВСТРОЕННАЯ АДМИН-ПАНЕЛЬ -->
-<div id="adminPanel">
+<div id="adminPanel" class="show">
   <div class="admin-header">
     <h2><span class="auto-save-indicator"></span>⚙️ Админ-панель</h2>
     <button class="btn" id="closeAdminBtn">✕ Закрыть</button>
@@ -205,16 +223,42 @@
           <th>Действия</th>
         </tr>
       </thead>
-      <tbody id="adminTableBody"></tbody>
+      <tbody id="adminTableBody">
+    <tr>
+      <td><input value="TK-2026-001" data-ai="0" data-af="article" style="width:100px;"></td>
+      <td><input value="Хронограф Премиум" data-ai="0" data-af="name" style="width:120px;"></td>
+      <td><textarea data-ai="0" data-af="desc" style="width:150px;">Швейцарский механизм, сапфировое стекло, водозащита 100м</textarea></td>
+      <td><select data-ai="0" data-af="category"><option value="men" selected="">Муж</option><option value="women">Жен</option></select></td>
+      <td><input type="number" value="850000" data-ai="0" data-af="price" style="width:80px;"></td>
+      <td><input type="number" value="3" data-ai="0" data-af="qty" style="width:60px;"></td>
+      <td><input value="" data-ai="0" data-af="imagesStr" style="width:150px;"></td>
+      <td style="white-space:nowrap;">
+        <button class="icon-btn" onclick="adminSaveRow(0)" title="Сохранить" style="display:inline-flex;">💾</button>
+        <button class="icon-btn danger" onclick="adminDeleteRow(0)" title="Удалить" style="display:inline-flex;">🗑️</button>
+      </td>
+    </tr>
+  
+    <tr>
+      <td><input value="TK-2026-002" data-ai="1" data-af="article" style="width:100px;"></td>
+      <td><input value="" data-ai="1" data-af="name" style="width:120px;"></td>
+      <td><textarea data-ai="1" data-af="desc" style="width:150px;"></textarea></td>
+      <td><select data-ai="1" data-af="category"><option value="men" selected="">Муж</option><option value="women">Жен</option></select></td>
+      <td><input type="number" value="0" data-ai="1" data-af="price" style="width:80px;"></td>
+      <td><input type="number" value="0" data-ai="1" data-af="qty" style="width:60px;"></td>
+      <td><input value="" data-ai="1" data-af="imagesStr" style="width:150px;"></td>
+      <td style="white-space:nowrap;">
+        <button class="icon-btn" onclick="adminSaveRow(1)" title="Сохранить" style="display:inline-flex;">💾</button>
+        <button class="icon-btn danger" onclick="adminDeleteRow(1)" title="Удалить" style="display:inline-flex;">🗑️</button>
+      </td>
+    </tr>
+  </tbody>
     </table>
   </div>
   
-  <div id="adminStatus" style="padding:10px;border-radius:6px;font-size:13px;display:none;"></div>
+  <div id="adminStatus" style="padding: 10px; border-radius: 6px; font-size: 13px; display: block; background: rgba(52, 152, 219, 0.2); color: rgb(52, 152, 219); border: 1px solid rgba(52, 152, 219, 0.3);">⏳ Отправка...</div>
 </div>
 
-<footer id="mainFooter">
-  © 2026 TEMPUS KZ · Оффлайн-каталог
-</footer>
+<footer id="mainFooter">© 2026 TEMPUS KZ · <a href="#" onclick="toggleAdmin()" style="color:#d4af37;text-decoration:none;">⚙️ Админ-панель</a></footer>
 
 <!-- Лайтбокс -->
 <div class="lightbox" id="lightbox">
@@ -263,7 +307,7 @@
     </div>
     <div class="field"><label>Фото часов (можно несколько)</label>
       <div class="file-input">
-        <input type="file" id="fImgFile" accept="image/*" multiple>
+        <input type="file" id="fImgFile" accept="image/*" multiple="">
         <div class="file-input-text"><b>Нажмите для загрузки</b> фото<br><small>JPG, PNG, WEBP</small></div>
       </div>
       <div class="thumbs-gallery" id="addThumbs"></div>
@@ -294,7 +338,7 @@
     <div class="field"><label>Текущие фото</label><div class="thumbs-gallery" id="editThumbs"></div></div>
     <div class="field"><label>Добавить ещё фото</label>
       <div class="file-input">
-        <input type="file" id="eImgFile" accept="image/*" multiple>
+        <input type="file" id="eImgFile" accept="image/*" multiple="">
         <div class="file-input-text"><b>Выберите фото</b></div>
       </div>
       <div class="thumbs-gallery" id="editNewThumbs"></div>
@@ -321,7 +365,8 @@
   </div>
 </div>
 
-<script id="catalog-data" type="application/json">[]</script>
+<script id="catalog-data" type="application/json">[{"article":"TK-2026-001","name":"Хронограф Премиум","desc":"Швейцарский механизм, сапфировое стекло, водозащита 100м","category":"men","price":850000,"qty":3,"images":[]},{"article":"TK-2026-002","name":"","desc":"","category":"men","price":0,"qty":0,"images":[]}]</script>
 <script src="script.js?v=10"></script>
-</body>
-</html>
+
+
+</body></html>
