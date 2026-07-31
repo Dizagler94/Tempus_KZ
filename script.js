@@ -1,11 +1,13 @@
 // ========== ОЧИСТКА КЕША ==========
 (function() {
-  const KEY = 'mdt_cache_v6';
+  const KEY = 'mdt_cache_v7';
   if (localStorage.getItem(KEY) === 'true') return;
   try {
     const favs = localStorage.getItem('mdt_favorites_v1');
+    const gh = localStorage.getItem('mdt_github_settings_v7');
     localStorage.clear();
     if (favs) localStorage.setItem('mdt_favorites_v1', favs);
+    if (gh) localStorage.setItem('mdt_github_settings_v7', gh);
     localStorage.setItem(KEY, 'true');
   } catch(e) {}
 })();
@@ -14,8 +16,8 @@
 const AUTH = { user: "anastasia_zy_zy", pass: "anastasia_zy_zy" };
 const LS_KEY = "mdt_watches_v2";
 const FAV_KEY = "mdt_favorites_v1";
-const GITHUB_SETTINGS_KEY = "mdt_github_settings_v6";
-const AUTH_KEY = "mdt_admin_auth_v6";
+const GITHUB_SETTINGS_KEY = "mdt_github_settings_v7";
+const AUTH_KEY = "mdt_admin_auth_v7";
 const DATA_URL = 'data.json';
 
 let canUseStorage = false;
@@ -79,11 +81,8 @@ function saveFavorites() {
 }
 
 function updateFavCount() {
-  // Обновляем ВСЕ счётчики на странице
-  const allCounters = document.querySelectorAll('.fav-count');
-  allCounters.forEach(el => {
+  document.querySelectorAll('.fav-count').forEach(el => {
     el.textContent = favorites.length;
-    // Анимация
     el.style.animation = 'none';
     el.offsetHeight;
     el.style.animation = 'countPop 0.3s ease';
@@ -99,8 +98,6 @@ function toggleFav(article) {
   saveFavorites();
   
   const esc = article.replace(/"/g, '\\"');
-  
-  // Обновляем кнопку в карточке
   const btn = document.querySelector(`[data-fav="${esc}"]`);
   if (btn) {
     const active = isFav(article);
@@ -112,14 +109,11 @@ function toggleFav(article) {
     btn.classList.add('animating');
   }
   
-  // Обновляем рамку карточки
   const card = document.querySelector(`[data-article="${esc}"]`);
   if (card) card.classList.toggle('fav-active', isFav(article));
   
-  // Принудительно обновляем все счётчики
   updateFavCount();
   
-  // Обновляем модалку избранного если открыта
   const favModal = document.getElementById("favModal");
   if (favModal && favModal.classList.contains("open")) openFavModal();
 }
@@ -194,7 +188,7 @@ async function saveToFile() {
   } catch (e) { alert("Ошибка: " + e.message); }
 }
 
-// ========== GITHUB API ==========
+// ========== GITHUB API (ПОЛНОСТЬЮ ПЕРЕПИСАНО) ==========
 function getGithubSettings() {
   try {
     const s = localStorage.getItem(GITHUB_SETTINGS_KEY);
@@ -202,95 +196,163 @@ function getGithubSettings() {
   } catch (e) { return null; }
 }
 
-async function pushToGithub(settings, path, content) {
-  const encoded = btoa(unescape(encodeURIComponent(content)));
+function saveGithubSettingsToStorage(settings) {
+  localStorage.setItem(GITHUB_SETTINGS_KEY, JSON.stringify(settings));
+  console.log('✅ Настройки GitHub сохранены');
+}
+
+/**
+ * Универсальная функция отправки файла на GitHub
+ * @param {Object} settings - { username, repo, token, branch }
+ * @param {string} path - путь к файлу в репозитории (data.json, index.html)
+ * @param {string} content - содержимое файла
+ */
+async function pushFileToGithub(settings, path, content) {
+  console.log(`📤 Отправка ${path}...`);
+  
+  // Кодируем в base64
+  const base64Content = btoa(unescape(encodeURIComponent(content)));
+  
   const apiUrl = `https://api.github.com/repos/${settings.username}/${settings.repo}/contents/${path}`;
   
-  // Получаем SHA существующего файла
+  // Шаг 1: Получаем SHA существующего файла (если есть)
   let sha = null;
   try {
-    const getResp = await fetch(apiUrl + '?ref=' + settings.branch, {
+    const response = await fetch(apiUrl + '?ref=' + settings.branch, {
+      method: 'GET',
       headers: {
-        'Authorization': `token ${settings.token}`,
-        'Accept': 'application/vnd.github.v3+json'
+        'Authorization': 'token ' + settings.token,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json'
       }
     });
-    if (getResp.ok) {
-      const fileData = await getResp.json();
-      sha = fileData.sha;
+    
+    if (response.ok) {
+      const data = await response.json();
+      sha = data.sha;
+      console.log(`📎 Найден существующий файл ${path}, SHA: ${sha.substring(0, 7)}`);
+    } else if (response.status === 404) {
+      console.log(`📄 Файл ${path} будет создан`);
+    } else {
+      const errData = await response.json().catch(() => ({}));
+      console.warn(`⚠️ Статус ${response.status} для ${path}:`, errData.message || '');
     }
   } catch (e) {
-    console.warn('Не удалось получить SHA для', path, e);
+    console.warn(`⚠️ Не удалось проверить ${path}:`, e.message);
   }
   
-  // Отправляем файл
+  // Шаг 2: Отправляем файл
   const body = {
-    message: `Update ${path} - ${new Date().toISOString()}`,
-    content: encoded,
+    message: `Update ${path} [${new Date().toLocaleString('ru-RU')}]`,
+    content: base64Content,
     branch: settings.branch
   };
   if (sha) body.sha = sha;
   
-  const putResp = await fetch(apiUrl, {
+  console.log(`🚀 PUT ${apiUrl}`);
+  
+  const response = await fetch(apiUrl, {
     method: 'PUT',
     headers: {
-      'Authorization': `token ${settings.token}`,
+      'Authorization': 'token ' + settings.token,
       'Accept': 'application/vnd.github.v3+json',
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(body)
   });
   
-  if (!putResp.ok) {
-    const errData = await putResp.json();
-    throw new Error(errData.message || 'Ошибка отправки');
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}));
+    console.error(`❌ Ошибка ${response.status}:`, errData);
+    throw new Error(errData.message || `HTTP ${response.status}`);
   }
   
-  console.log('✅ Отправлен:', path);
+  const result = await response.json();
+  console.log(`✅ ${path} отправлен успешно!`);
+  return result;
 }
 
-async function updateGithub() {
+/**
+ * Главная функция сохранения на GitHub
+ */
+async function saveToGithub() {
+  // 1. Получаем настройки
   const settings = getGithubSettings();
+  
+  // 2. Если настроек нет — показываем модалку
   if (!settings || !settings.username || !settings.repo || !settings.token) {
-    // Открываем модалку для ввода настроек
+    console.warn('⚠️ Нет настроек GitHub, открываю модалку');
     openModal("githubModal");
-    return;
+    return false;
   }
   
-  // Показываем статус
+  console.log('🔐 Использую настройки:', { 
+    username: settings.username, 
+    repo: settings.repo, 
+    branch: settings.branch,
+    token: settings.token ? settings.token.substring(0, 8) + '...' : 'НЕТ'
+  });
+  
+  // 3. Показываем статус
   const saveBanner = document.getElementById("saveBanner");
   const bannerSpan = saveBanner ? saveBanner.querySelector('span') : null;
+  
   if (bannerSpan) bannerSpan.innerHTML = '⏳ <b>Отправка на GitHub...</b>';
   if (saveBanner) saveBanner.classList.add("show");
   
   try {
     const watches = loadWatchesSync();
     
-    // Формируем index.html
-    let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
-    html = html.replace(
+    // 4. Формируем содержимое файлов
+    const dataJsonContent = JSON.stringify(watches, null, 2);
+    
+    let indexHtml = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+    indexHtml = indexHtml.replace(
       /<script id="catalog-data" type="application\/json">[\s\S]*?<\/script>/,
       `<script id="catalog-data" type="application\/json">${JSON.stringify(watches).replace(/<\//g, "<\\/")}<\/script>`
     );
     
-    // Отправляем оба файла
-    await pushToGithub(settings, 'data.json', JSON.stringify(watches, null, 2));
-    await pushToGithub(settings, 'index.html', html);
+    // 5. Отправляем data.json
+    await pushFileToGithub(settings, 'data.json', dataJsonContent);
     
+    // 6. Отправляем index.html
+    await pushFileToGithub(settings, 'index.html', indexHtml);
+    
+    // 7. Успех!
     hasUnsavedChanges = false;
     updateSaveBanner();
     
-    if (bannerSpan) bannerSpan.innerHTML = '✅ <b>Сохранено на GitHub!</b>';
-    setTimeout(() => {
-      if (saveBanner) saveBanner.classList.remove("show");
-    }, 3000);
+    if (bannerSpan) {
+      bannerSpan.innerHTML = '✅ <b>Сохранено на GitHub!</b>';
+      setTimeout(() => { if (saveBanner) saveBanner.classList.remove("show"); }, 3000);
+    }
     
-    alert("✅ Файлы обновлены на GitHub!\nСайт обновится через 1-2 минуты.\nhttps://" + settings.username + ".github.io/" + settings.repo + "/");
+    const siteUrl = `https://${settings.username}.github.io/${settings.repo}/`;
+    alert('✅ Файлы обновлены на GitHub!\n\nСайт обновится через 1-2 минуты:\n' + siteUrl);
+    console.log('🎉 Всё готово! Сайт:', siteUrl);
+    return true;
+    
   } catch (e) {
-    console.error('Ошибка GitHub:', e);
-    if (bannerSpan) bannerSpan.innerHTML = '❌ <b>Ошибка: ' + e.message + '</b>';
-    alert("❌ Ошибка GitHub: " + e.message + "\n\nПроверьте:\n1. Правильность токена\n2. Права токена (нужно repo)\n3. Имя пользователя и репозитория");
+    console.error('❌ Ошибка сохранения:', e);
+    
+    if (bannerSpan) {
+      bannerSpan.innerHTML = '❌ <b>Ошибка: ' + e.message + '</b>';
+      setTimeout(() => { if (saveBanner) saveBanner.classList.remove("show"); }, 5000);
+    }
+    
+    alert('❌ Ошибка сохранения на GitHub:\n\n' + e.message + 
+          '\n\nПроверьте:\n' +
+          '1. Правильность токена\n' +
+          '2. Права токена (нужно "repo")\n' +
+          '3. Имя пользователя и репозитория\n' +
+          '4. Существует ли ветка "' + (settings?.branch || 'main') + '"');
+    return false;
   }
+}
+
+// Совместимость со старым именем функции
+function updateGithub() {
+  return saveToGithub();
 }
 
 // ========== ФОРМАТИРОВАНИЕ ==========
@@ -440,7 +502,7 @@ async function render() {
   initSliders();
   initCardEvents();
   updateFooter();
-  updateFavCount(); // Обновляем счётчик после рендера
+  updateFavCount();
 }
 
 function updateFooter() {
@@ -646,9 +708,11 @@ function bindEvents() {
     saveWatches(list); closeModal("editModal"); render();
   };
   
+  // Кнопки сохранения
   document.getElementById("saveBtn").onclick = saveToFile;
-  document.getElementById("githubBtn").onclick = updateGithub;
+  document.getElementById("githubBtn").onclick = saveToGithub;
   
+  // Сохранение настроек GitHub из модалки
   document.getElementById("saveGithub").onclick = async function() {
     const err = document.getElementById("githubErr");
     const settings = {
@@ -657,11 +721,19 @@ function bindEvents() {
       token: document.getElementById("ghToken").value.trim(),
       branch: document.getElementById("ghBranch").value.trim() || "main"
     };
-    if (!settings.username || !settings.repo || !settings.token) { err.textContent = "Заполните все поля"; return; }
-    localStorage.setItem(GITHUB_SETTINGS_KEY, JSON.stringify(settings));
+    
+    if (!settings.username || !settings.repo || !settings.token) {
+      err.textContent = "Заполните все поля";
+      return;
+    }
+    
+    // Сохраняем настройки
+    saveGithubSettingsToStorage(settings);
     err.textContent = "";
     closeModal("githubModal");
-    await updateGithub();
+    
+    // Сразу пробуем отправить
+    await saveToGithub();
   };
   
   document.getElementById("categoryMenu").onclick = function(e) {
@@ -691,5 +763,6 @@ function bindEvents() {
 }
 
 // ========== ЗАПУСК ==========
+console.log('🚀 TEMPUS KZ v7 загружается...');
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { bindEvents(); initApp(); });
 else { bindEvents(); initApp(); }
