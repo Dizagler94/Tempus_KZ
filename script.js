@@ -1,6 +1,6 @@
 // ========== ОЧИСТКА КЕША ==========
 (function() {
-  const KEY = 'mdt_cache_v5';
+  const KEY = 'mdt_cache_v6';
   if (localStorage.getItem(KEY) === 'true') return;
   try {
     const favs = localStorage.getItem('mdt_favorites_v1');
@@ -14,8 +14,8 @@
 const AUTH = { user: "anastasia_zy_zy", pass: "anastasia_zy_zy" };
 const LS_KEY = "mdt_watches_v2";
 const FAV_KEY = "mdt_favorites_v1";
-const GITHUB_SETTINGS_KEY = "mdt_github_settings_v5";
-const AUTH_KEY = "mdt_admin_auth_v5";
+const GITHUB_SETTINGS_KEY = "mdt_github_settings_v6";
+const AUTH_KEY = "mdt_admin_auth_v6";
 const DATA_URL = 'data.json';
 
 let canUseStorage = false;
@@ -42,9 +42,10 @@ async function loadDataFromFile() {
     if (r.ok) {
       catalogData = migrateData(await r.json());
       if (canUseStorage) localStorage.setItem(LS_KEY, JSON.stringify(catalogData));
+      console.log('📦 data.json загружен:', catalogData.length);
       return catalogData;
     }
-  } catch (e) {}
+  } catch (e) { console.warn('data.json не загружен'); }
   
   if (canUseStorage) {
     try {
@@ -78,7 +79,15 @@ function saveFavorites() {
 }
 
 function updateFavCount() {
-  document.querySelectorAll('[id^="favCount"]').forEach(el => el.textContent = favorites.length);
+  // Обновляем ВСЕ счётчики на странице
+  const allCounters = document.querySelectorAll('.fav-count');
+  allCounters.forEach(el => {
+    el.textContent = favorites.length;
+    // Анимация
+    el.style.animation = 'none';
+    el.offsetHeight;
+    el.style.animation = 'countPop 0.3s ease';
+  });
 }
 
 function isFav(article) { return favorites.includes(article); }
@@ -90,22 +99,27 @@ function toggleFav(article) {
   saveFavorites();
   
   const esc = article.replace(/"/g, '\\"');
+  
+  // Обновляем кнопку в карточке
   const btn = document.querySelector(`[data-fav="${esc}"]`);
   if (btn) {
     const active = isFav(article);
     btn.classList.toggle('active', active);
-    btn.textContent = active ? '❤️' : '🤍';
+    btn.innerHTML = active ? '❤️' : '🤍';
     btn.title = active ? 'Убрать из избранного' : 'В избранное';
     btn.classList.remove('animating');
     void btn.offsetWidth;
     btn.classList.add('animating');
   }
   
+  // Обновляем рамку карточки
   const card = document.querySelector(`[data-article="${esc}"]`);
   if (card) card.classList.toggle('fav-active', isFav(article));
   
+  // Принудительно обновляем все счётчики
   updateFavCount();
   
+  // Обновляем модалку избранного если открыта
   const favModal = document.getElementById("favModal");
   if (favModal && favModal.classList.contains("open")) openFavModal();
 }
@@ -180,62 +194,102 @@ async function saveToFile() {
   } catch (e) { alert("Ошибка: " + e.message); }
 }
 
-// ========== GITHUB ==========
+// ========== GITHUB API ==========
 function getGithubSettings() {
-  try { return JSON.parse(localStorage.getItem(GITHUB_SETTINGS_KEY)); } catch (e) { return null; }
+  try {
+    const s = localStorage.getItem(GITHUB_SETTINGS_KEY);
+    return s ? JSON.parse(s) : null;
+  } catch (e) { return null; }
 }
 
 async function pushToGithub(settings, path, content) {
   const encoded = btoa(unescape(encodeURIComponent(content)));
   const apiUrl = `https://api.github.com/repos/${settings.username}/${settings.repo}/contents/${path}`;
   
+  // Получаем SHA существующего файла
   let sha = null;
   try {
-    const r = await fetch(apiUrl + '?ref=' + settings.branch, {
-      headers: { 'Authorization': `token ${settings.token}`, 'Accept': 'application/vnd.github.v3+json' }
+    const getResp = await fetch(apiUrl + '?ref=' + settings.branch, {
+      headers: {
+        'Authorization': `token ${settings.token}`,
+        'Accept': 'application/vnd.github.v3+json'
+      }
     });
-    if (r.ok) sha = (await r.json()).sha;
-  } catch (e) {}
+    if (getResp.ok) {
+      const fileData = await getResp.json();
+      sha = fileData.sha;
+    }
+  } catch (e) {
+    console.warn('Не удалось получить SHA для', path, e);
+  }
   
-  const body = { message: `Update ${path}`, content: encoded, branch: settings.branch };
+  // Отправляем файл
+  const body = {
+    message: `Update ${path} - ${new Date().toISOString()}`,
+    content: encoded,
+    branch: settings.branch
+  };
   if (sha) body.sha = sha;
   
-  const r = await fetch(apiUrl, {
+  const putResp = await fetch(apiUrl, {
     method: 'PUT',
-    headers: { 'Authorization': `token ${settings.token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json' },
+    headers: {
+      'Authorization': `token ${settings.token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json'
+    },
     body: JSON.stringify(body)
   });
   
-  if (!r.ok) throw new Error((await r.json()).message || 'Ошибка');
+  if (!putResp.ok) {
+    const errData = await putResp.json();
+    throw new Error(errData.message || 'Ошибка отправки');
+  }
+  
+  console.log('✅ Отправлен:', path);
 }
 
 async function updateGithub() {
   const settings = getGithubSettings();
   if (!settings || !settings.username || !settings.repo || !settings.token) {
+    // Открываем модалку для ввода настроек
     openModal("githubModal");
     return;
   }
   
-  const err = document.getElementById("githubErr");
-  err.textContent = "⏳ Отправка...";
+  // Показываем статус
+  const saveBanner = document.getElementById("saveBanner");
+  const bannerSpan = saveBanner ? saveBanner.querySelector('span') : null;
+  if (bannerSpan) bannerSpan.innerHTML = '⏳ <b>Отправка на GitHub...</b>';
+  if (saveBanner) saveBanner.classList.add("show");
   
   try {
     const watches = loadWatchesSync();
+    
+    // Формируем index.html
     let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
     html = html.replace(
       /<script id="catalog-data" type="application\/json">[\s\S]*?<\/script>/,
       `<script id="catalog-data" type="application\/json">${JSON.stringify(watches).replace(/<\//g, "<\\/")}<\/script>`
     );
     
-    await pushToGithub(settings, 'index.html', html);
+    // Отправляем оба файла
     await pushToGithub(settings, 'data.json', JSON.stringify(watches, null, 2));
+    await pushToGithub(settings, 'index.html', html);
     
-    err.textContent = "";
     hasUnsavedChanges = false;
     updateSaveBanner();
-    alert("✅ Обновлено на GitHub!\nСайт обновится через 1-2 минуты.");
+    
+    if (bannerSpan) bannerSpan.innerHTML = '✅ <b>Сохранено на GitHub!</b>';
+    setTimeout(() => {
+      if (saveBanner) saveBanner.classList.remove("show");
+    }, 3000);
+    
+    alert("✅ Файлы обновлены на GitHub!\nСайт обновится через 1-2 минуты.\nhttps://" + settings.username + ".github.io/" + settings.repo + "/");
   } catch (e) {
-    err.textContent = "❌ " + e.message;
+    console.error('Ошибка GitHub:', e);
+    if (bannerSpan) bannerSpan.innerHTML = '❌ <b>Ошибка: ' + e.message + '</b>';
+    alert("❌ Ошибка GitHub: " + e.message + "\n\nПроверьте:\n1. Правильность токена\n2. Права токена (нужно repo)\n3. Имя пользователя и репозитория");
   }
 }
 
@@ -386,12 +440,13 @@ async function render() {
   initSliders();
   initCardEvents();
   updateFooter();
+  updateFavCount(); // Обновляем счётчик после рендера
 }
 
 function updateFooter() {
   const footer = document.getElementById("mainFooter");
   if (!footer) return;
-  if (isAuthed && AUTH.user === "anastasia_zy_zy") {
+  if (isAuthed) {
     footer.innerHTML = `© 2026 TEMPUS KZ · Оффлайн-каталог · <a href="admin.html" style="color:#d4af37;text-decoration:none;">⚙️ Админ-панель</a>`;
   } else {
     footer.innerHTML = `© 2026 TEMPUS KZ · Оффлайн-каталог`;
