@@ -1,127 +1,48 @@
-// ========== УНИВЕРСАЛЬНАЯ ОЧИСТКА КЕША (все браузеры + телефоны) ==========
+// ========== УНИВЕРСАЛЬНАЯ ОЧИСТКА КЕША ==========
 (function(){
-  const CACHE_VERSION = '2.0.0';
+  const CACHE_VERSION = '2.0.1';
   const CACHE_KEY = 'tempus_kz_version';
   
   function forceClearCache() {
     console.log('🧹 Полная очистка кеша...');
-    
     const important = {
       favorites: localStorage.getItem('mdt_favorites_v1'),
       github: localStorage.getItem('mdt_github_v17')
     };
-    
     localStorage.clear();
-    
     if (important.favorites) localStorage.setItem('mdt_favorites_v1', important.favorites);
     if (important.github) localStorage.setItem('mdt_github_v17', important.github);
-    
     sessionStorage.clear();
-    
     if ('caches' in window) {
-      caches.keys().then(names => {
-        names.forEach(name => caches.delete(name));
-        console.log('📦 Service Worker кеш очищен');
-      });
+      caches.keys().then(names => { names.forEach(name => caches.delete(name)); });
     }
-    
     document.cookie.split(";").forEach(c => {
       document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
     });
-    
     localStorage.setItem(CACHE_KEY, CACHE_VERSION);
     localStorage.setItem('cache_cleared_at', new Date().toISOString());
-    
-    console.log('✅ Кеш полностью очищен');
+    console.log('✅ Кеш очищен');
   }
   
   const savedVersion = localStorage.getItem(CACHE_KEY);
-  
   if (savedVersion !== CACHE_VERSION) {
     forceClearCache();
-    
     if (!sessionStorage.getItem('reloaded_after_cache_clear')) {
       sessionStorage.setItem('reloaded_after_cache_clear', 'true');
-      
-      setTimeout(() => {
-        window.location.reload(true);
-      }, 100);
-    }
-  } else {
-    const lastCleared = localStorage.getItem('cache_cleared_at');
-    if (lastCleared) {
-      const hoursSinceClear = (Date.now() - new Date(lastCleared).getTime()) / (1000 * 60 * 60);
-      if (hoursSinceClear > 24) {
-        console.log('🕐 Прошло более 24 часов — очистка кеша');
-        forceClearCache();
-      }
+      setTimeout(() => { window.location.reload(true); }, 100);
     }
   }
-  
-  function addNoCacheMeta() {
-    const metas = [
-      { 'http-equiv': 'Cache-Control', content: 'no-cache, no-store, must-revalidate, max-age=0' },
-      { 'http-equiv': 'Pragma', content: 'no-cache' },
-      { 'http-equiv': 'Expires', content: '0' }
-    ];
-    
-    metas.forEach(meta => {
-      const el = document.createElement('meta');
-      el.setAttribute('http-equiv', meta['http-equiv']);
-      el.content = meta.content;
-      document.head.appendChild(el);
-    });
-  }
-  
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      const lastActive = sessionStorage.getItem('last_active');
-      const now = Date.now();
-      
-      if (lastActive) {
-        const minutesInactive = (now - parseInt(lastActive)) / (1000 * 60);
-        if (minutesInactive > 30) {
-          console.log('📱 Возврат после долгого бездействия — мягкое обновление');
-          if (typeof render === 'function') {
-            loadDataFromFile().then(() => render());
-          }
-        }
-      }
-      
-      sessionStorage.setItem('last_active', now.toString());
-    }
-  });
-  
-  let touchStartY = 0;
-  document.addEventListener('touchstart', e => {
-    touchStartY = e.touches[0].clientY;
-  }, { passive: true });
-  
-  document.addEventListener('touchmove', e => {
-    const touchY = e.touches[0].clientY;
-    if (window.scrollY === 0 && touchY > touchStartY + 150) {
-      console.log('📱 Обнаружен pull-to-refresh');
-      sessionStorage.setItem('pull_to_refresh', 'true');
-    }
-  }, { passive: true });
-  
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', addNoCacheMeta);
-  } else {
-    addNoCacheMeta();
-  }
-  
-  console.log('🔧 Система очистки кеша v' + CACHE_VERSION + ' активирована');
-  console.log('📱 Поддержка: Chrome, Safari, Firefox, iOS, Android');
 })();
 
 // ========== КОНСТАНТЫ ==========
 const AUTH = { user: "anastasia_zy_zy", pass: "anastasia_zy_zy" };
 const LS_KEY = "mdt_watches_v2", FAV_KEY = "mdt_favorites_v1", GH_KEY = "mdt_github_v17", DATA_URL = 'data.json';
+const ITEMS_PER_PAGE = 12;
 let canUseStorage = false;
 try { localStorage.setItem('__t', '1'); localStorage.removeItem('__t'); canUseStorage = true; } catch (e) {}
 
-let isAuthed = false, currentCategory = "all", priceFilterMin = null, priceFilterMax = null, searchQuery = '', favorites = [], catalogData = [];
+let isAuthed = false, currentCategory = "all", priceFilterMin = null, priceFilterMax = null, searchQuery = '';
+let favorites = [], catalogData = [], currentPage = 1, totalPages = 1;
 
 // ========== ЗАГРУЗКА ДАННЫХ ==========
 async function loadDataFromFile() {
@@ -130,59 +51,26 @@ async function loadDataFromFile() {
     if (r.ok) {
       catalogData = migrateData(await r.json());
       if (canUseStorage) localStorage.setItem(LS_KEY, JSON.stringify(catalogData));
-      console.log('📦 data.json:', catalogData.length, 'моделей');
       return catalogData;
     }
-  } catch (e) { console.warn('data.json не загружен'); }
-  
+  } catch (e) {}
   if (canUseStorage) {
-    try {
-      const ls = localStorage.getItem(LS_KEY);
-      if (ls) { catalogData = migrateData(JSON.parse(ls)); return catalogData; }
-    } catch (e) {}
+    try { const ls = localStorage.getItem(LS_KEY); if (ls) { catalogData = migrateData(JSON.parse(ls)); return catalogData; } } catch (e) {}
   }
-  
   catalogData = loadFromEmbedded();
   return catalogData;
 }
 
 function loadFromEmbedded() {
-  try {
-    const el = document.getElementById("catalog-data");
-    return el ? migrateData(JSON.parse(el.textContent.trim() || "[]")) : [];
-  } catch (e) { return []; }
+  try { const el = document.getElementById("catalog-data"); return el ? migrateData(JSON.parse(el.textContent.trim() || "[]")) : []; } catch (e) { return []; }
 }
-
 function loadWatchesSync() { return catalogData; }
-
-function migrateData(list) {
-  return list.map(w => {
-    if (!w.images) { w.images = w.img ? [w.img] : []; delete w.img; }
-    if (!w.category) w.category = "men";
-    if (!w.name) w.name = w.desc || '';
-    return w;
-  });
-}
+function migrateData(list) { return list.map(w => { if (!w.images) { w.images = w.img ? [w.img] : []; delete w.img; } if (!w.category) w.category = "men"; if (!w.name) w.name = w.desc || ''; return w; }); }
 
 // ========== ИЗБРАННОЕ ==========
-function loadFavorites() {
-  if (!canUseStorage) return [];
-  try { return JSON.parse(localStorage.getItem(FAV_KEY) || "[]").filter(a => a?.trim()); } catch (e) { return []; }
-}
-
-function saveFavorites() {
-  favorites = favorites.filter(a => a?.trim());
-  if (canUseStorage) localStorage.setItem(FAV_KEY, JSON.stringify(favorites));
-  updateFavCount();
-}
-
-function updateFavCount() {
-  document.querySelectorAll('.fav-count').forEach(el => {
-    el.textContent = favorites.length;
-    el.style.animation = 'none'; el.offsetHeight; el.style.animation = 'countPop 0.3s ease';
-  });
-}
-
+function loadFavorites() { if (!canUseStorage) return []; try { return JSON.parse(localStorage.getItem(FAV_KEY) || "[]").filter(a => a?.trim()); } catch (e) { return []; } }
+function saveFavorites() { favorites = favorites.filter(a => a?.trim()); if (canUseStorage) localStorage.setItem(FAV_KEY, JSON.stringify(favorites)); updateFavCount(); }
+function updateFavCount() { document.querySelectorAll('.fav-count').forEach(el => { el.textContent = favorites.length; el.style.animation = 'none'; el.offsetHeight; el.style.animation = 'countPop 0.3s ease'; }); }
 function isFav(article) { return article?.trim() ? favorites.includes(article) : false; }
 
 function toggleFav(article) {
@@ -190,16 +78,9 @@ function toggleFav(article) {
   const idx = favorites.indexOf(article);
   if (idx >= 0) favorites.splice(idx, 1); else favorites.push(article);
   saveFavorites();
-  
   const esc = article.replace(/"/g, '\\"');
   const btn = document.querySelector(`[data-fav="${esc}"]`);
-  if (btn) {
-    const a = isFav(article);
-    btn.classList.toggle('active', a);
-    btn.innerHTML = a ? '❤️' : '🤍';
-    btn.title = a ? 'Убрать' : 'В избранное';
-    btn.classList.remove('animating'); void btn.offsetWidth; btn.classList.add('animating');
-  }
+  if (btn) { const a = isFav(article); btn.classList.toggle('active', a); btn.innerHTML = a ? '❤️' : '🤍'; btn.title = a ? 'Убрать' : 'В избранное'; btn.classList.remove('animating'); void btn.offsetWidth; btn.classList.add('animating'); }
   const card = document.querySelector(`[data-article="${esc}"]`);
   if (card) card.classList.toggle('fav-active', isFav(article));
   updateFavCount();
@@ -207,38 +88,34 @@ function toggleFav(article) {
 }
 
 // ========== СОХРАНЕНИЕ ==========
-function saveWatches(list) {
-  catalogData = list;
-  try { localStorage.setItem(LS_KEY, JSON.stringify(list)); }
-  catch (e) { console.warn('localStorage full'); const wi = list.map(w => ({ ...w, images: [] })); try { localStorage.setItem(LS_KEY, JSON.stringify(wi)); } catch (e2) {} }
-}
+function saveWatches(list) { catalogData = list; try { localStorage.setItem(LS_KEY, JSON.stringify(list)); } catch (e) {} }
 
 // ========== ИЗОБРАЖЕНИЯ ==========
 function compressImage(file, maxWidth = 800, quality = 0.8) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = e => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let w = img.width, h = img.height;
-        if (w > maxWidth) { h = (h * maxWidth) / w; w = maxWidth; }
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', quality));
-      };
-      img.onerror = reject;
-      img.src = e.target.result;
-    };
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    reader.onload = e => { const img = new Image(); img.onload = () => { const canvas = document.createElement('canvas'); let w = img.width, h = img.height; if (w > maxWidth) { h = (h * maxWidth) / w; w = maxWidth; } canvas.width = w; canvas.height = h; canvas.getContext('2d').drawImage(img, 0, 0, w, h); resolve(canvas.toDataURL('image/jpeg', quality)); }; img.onerror = reject; img.src = e.target.result; };
+    reader.onerror = reject; reader.readAsDataURL(file);
   });
 }
+async function compressFiles(files) { const r = []; for (const f of files) { try { r.push(await compressImage(f)); } catch (e) {} } return r; }
 
-async function compressFiles(files) {
-  const r = [];
-  for (const f of files) { try { r.push(await compressImage(f)); } catch (e) {} }
-  return r;
+// ========== ФИЛЬТРАЦИЯ ==========
+function getFilteredWatches() {
+  let w = loadWatchesSync();
+  if (currentCategory !== "all") w = w.filter(x => x.category === currentCategory);
+  if (priceFilterMin !== null) w = w.filter(x => x.price >= priceFilterMin);
+  if (priceFilterMax !== null) w = w.filter(x => x.price <= priceFilterMax);
+  if (searchQuery) { const q = searchQuery.toLowerCase(); w = w.filter(x => (x.name || '').toLowerCase().includes(q) || (x.desc || '').toLowerCase().includes(q) || (x.article || '').toLowerCase().includes(q)); }
+  return w;
+}
+
+function getPageWatches() {
+  const filtered = getFilteredWatches();
+  totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * ITEMS_PER_PAGE;
+  return filtered.slice(start, start + ITEMS_PER_PAGE);
 }
 
 // ========== HTML ==========
@@ -246,24 +123,17 @@ async function saveToFile() {
   try {
     const watches = loadWatchesSync();
     let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
-    html = html.replace(
-      /<script id="catalog-data" type="application\/json">[\s\S]*?<\/script>/,
-      `<script id="catalog-data" type="application\/json">${JSON.stringify(watches).replace(/<\//g, "<\\/")}<\/script>`
-    );
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = "index.html"; a.click();
-    URL.revokeObjectURL(url);
+    html = html.replace(/<script id="catalog-data" type="application\/json">[\s\S]*?<\/script>/, `<script id="catalog-data" type="application\/json">${JSON.stringify(watches).replace(/<\//g, "<\\/")}<\/script>`);
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" }); const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = "index.html"; a.click(); URL.revokeObjectURL(url);
     alert("✅ index.html скачан!");
   } catch (e) { alert("Ошибка: " + e.message); }
 }
 
-// ========== EXCEL СКАЧИВАНИЕ ==========
+// ========== EXCEL ==========
 function downloadExcel() {
   const watches = loadWatchesSync();
   const rows = [['Артикул', 'Название', 'Описание', 'Категория', 'Цена (₸)', 'Количество', 'Наличие']];
   watches.forEach(w => { rows.push([w.article || '', w.name || '', w.desc || '', w.category === 'women' ? 'Женские' : 'Мужские', w.price || 0, w.qty || 0, w.qty > 3 ? 'В наличии' : w.qty > 0 ? 'Заканчивается' : 'Нет']); });
-  
   let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<?mso-application progid="Excel.Sheet"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n<Styles>\n';
   xml += '<Style ss:ID="Header"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/></Borders><Font ss:FontName="Calibri" ss:Size="12" ss:Bold="1" ss:Color="#1a1a1a"/><Interior ss:Color="#d4af37" ss:Pattern="Solid"/></Style>\n';
   xml += '<Style ss:ID="Normal"><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e0e0e0"/></Borders><Font ss:FontName="Calibri" ss:Size="11"/></Style>\n';
@@ -274,157 +144,46 @@ function downloadExcel() {
   xml += '<Style ss:ID="OutStock"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Calibri" ss:Size="11" ss:Color="#e74c3c"/></Style>\n';
   xml += '</Styles>\n<Worksheet ss:Name="Каталог часов">\n<Table>\n';
   xml += '<Column ss:Width="120"/><Column ss:Width="200"/><Column ss:Width="350"/><Column ss:Width="100"/><Column ss:Width="120"/><Column ss:Width="80"/><Column ss:Width="120"/>\n';
-  
-  rows.forEach((row, rowIdx) => {
-    xml += '<Row>\n';
-    row.forEach((cell, colIdx) => {
-      let style = 'Normal';
-      if (rowIdx === 0) style = 'Header';
-      else if (colIdx === 4) style = 'Price';
-      else if (colIdx === 3 || colIdx === 5) style = 'Center';
-      else if (colIdx === 6) { if (cell === 'В наличии') style = 'InStock'; else if (cell === 'Заканчивается') style = 'LowStock'; else style = 'OutStock'; }
-      const safe = String(cell).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      const type = (rowIdx > 0 && (colIdx === 4 || colIdx === 5)) ? 'Number' : 'String';
-      xml += `<Cell ss:StyleID="${style}"><Data ss:Type="${type}">${safe}</Data></Cell>\n`;
-    });
-    xml += '</Row>\n';
-  });
-  
+  rows.forEach((row, rowIdx) => { xml += '<Row>\n'; row.forEach((cell, colIdx) => { let style = 'Normal'; if (rowIdx === 0) style = 'Header'; else if (colIdx === 4) style = 'Price'; else if (colIdx === 3 || colIdx === 5) style = 'Center'; else if (colIdx === 6) { if (cell === 'В наличии') style = 'InStock'; else if (cell === 'Заканчивается') style = 'LowStock'; else style = 'OutStock'; } const safe = String(cell).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); const type = (rowIdx > 0 && (colIdx === 4 || colIdx === 5)) ? 'Number' : 'String'; xml += `<Cell ss:StyleID="${style}"><Data ss:Type="${type}">${safe}</Data></Cell>\n`; }); xml += '</Row>\n'; });
   xml += '</Table>\n</Worksheet>\n</Workbook>';
-  const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = 'tempus_kz_catalog.xls'; a.click();
-  URL.revokeObjectURL(url);
+  const blob = new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'tempus_kz_catalog.xls'; a.click(); URL.revokeObjectURL(url);
 }
 
-// ========== EXCEL ЗАГРУЗКА ==========
 function uploadExcel() { const el = document.getElementById("excelFileInput"); if (el) el.click(); }
-
 function handleExcelUpload(event) {
   const file = event.target.files[0]; if (!file) return;
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
-      const data = e.target.result; let rows = [];
-      if (data.includes('<?xml') || data.includes('<Workbook')) rows = parseXmlExcel(data); else rows = parseCSV(data);
+      const data = e.target.result; let rows = []; if (data.includes('<?xml') || data.includes('<Workbook')) rows = parseXmlExcel(data); else rows = parseCSV(data);
       if (rows.length < 2) { alert('❌ Файл пуст'); return; }
       const newWatches = [], existingWatches = loadWatchesSync(); let updated = 0, added = 0;
-      for (let i = 1; i < rows.length; i++) {
-        const row = rows[i]; if (!row[0] && !row[1]) continue;
-        const article = String(row[0] || '').trim(), name = String(row[1] || '').trim(), desc = String(row[2] || '').trim();
-        const category = String(row[3] || '').toLowerCase().includes('жен') ? 'women' : 'men';
-        const price = parseInt(String(row[4] || '0').replace(/[^\d]/g, '')) || 0, qty = parseInt(String(row[5] || '0').replace(/[^\d]/g, '')) || 0;
-        const existingIdx = existingWatches.findIndex(w => w.article === article && article !== '');
-        if (existingIdx >= 0) {
-          existingWatches[existingIdx] = { ...existingWatches[existingIdx], name: name || existingWatches[existingIdx].name, desc: desc || existingWatches[existingIdx].desc, category, price, qty };
-          updated++;
-        } else {
-          newWatches.push({ article: article || ('TK-' + new Date().getFullYear() + '-' + String(Math.random()).substring(2, 6)), name: name || 'Новая модель', desc: desc || '', category, price, qty, images: [] });
-          added++;
-        }
-      }
-      saveWatches([...existingWatches, ...newWatches]); render();
+      for (let i = 1; i < rows.length; i++) { const row = rows[i]; if (!row[0] && !row[1]) continue; const article = String(row[0] || '').trim(), name = String(row[1] || '').trim(), desc = String(row[2] || '').trim(); const category = String(row[3] || '').toLowerCase().includes('жен') ? 'women' : 'men'; const price = parseInt(String(row[4] || '0').replace(/[^\d]/g, '')) || 0, qty = parseInt(String(row[5] || '0').replace(/[^\d]/g, '')) || 0; const existingIdx = existingWatches.findIndex(w => w.article === article && article !== ''); if (existingIdx >= 0) { existingWatches[existingIdx] = { ...existingWatches[existingIdx], name: name || existingWatches[existingIdx].name, desc: desc || existingWatches[existingIdx].desc, category, price, qty }; updated++; } else { newWatches.push({ article: article || ('TK-' + new Date().getFullYear() + '-' + String(Math.random()).substring(2, 6)), name: name || 'Новая модель', desc: desc || '', category, price, qty, images: [] }); added++; } }
+      saveWatches([...existingWatches, ...newWatches]); currentPage = 1; render();
       alert(`✅ Готово!\n\n📝 Обновлено: ${updated}\n➕ Добавлено: ${added}\n📦 Всего: ${existingWatches.length + newWatches.length}`);
     } catch (err) { console.error(err); alert('❌ Ошибка чтения файла.'); }
   };
   reader.readAsText(file, 'UTF-8'); event.target.value = '';
 }
-
-function parseXmlExcel(xml) {
-  const rows = []; const rr = /<Row[^>]*>([\s\S]*?)<\/Row>/gi; let rm;
-  while ((rm = rr.exec(xml)) !== null) {
-    const cells = []; const cr = /<Cell[^>]*>(?:<Data[^>]*>)?([\s\S]*?)(?:<\/Data>)?<\/Cell>/gi; let cm;
-    while ((cm = cr.exec(rm[1])) !== null) {
-      let v = (cm[1] || '').replace(/<[^>]+>/g, '').trim();
-      v = v.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
-      cells.push(v);
-    }
-    if (cells.length) rows.push(cells);
-  }
-  return rows;
-}
-
-function parseCSV(csv) {
-  const rows = [];
-  csv.split(/\r?\n/).forEach(line => {
-    if (!line.trim()) return;
-    const cells = []; let cur = '', inQ = false;
-    for (const ch of line) {
-      if (ch === '"') inQ = !inQ;
-      else if ((ch === ';' || ch === ',') && !inQ) { cells.push(cur.trim()); cur = ''; }
-      else cur += ch;
-    }
-    cells.push(cur.trim());
-    if (cells.length) rows.push(cells);
-  });
-  return rows;
-}
+function parseXmlExcel(xml) { const rows = []; const rr = /<Row[^>]*>([\s\S]*?)<\/Row>/gi; let rm; while ((rm = rr.exec(xml)) !== null) { const cells = []; const cr = /<Cell[^>]*>(?:<Data[^>]*>)?([\s\S]*?)(?:<\/Data>)?<\/Cell>/gi; let cm; while ((cm = cr.exec(rm[1])) !== null) { let v = (cm[1] || '').replace(/<[^>]+>/g, '').trim(); v = v.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"'); cells.push(v); } if (cells.length) rows.push(cells); } return rows; }
+function parseCSV(csv) { const rows = []; csv.split(/\r?\n/).forEach(line => { if (!line.trim()) return; const cells = []; let cur = '', inQ = false; for (const ch of line) { if (ch === '"') inQ = !inQ; else if ((ch === ';' || ch === ',') && !inQ) { cells.push(cur.trim()); cur = ''; } else cur += ch; } cells.push(cur.trim()); if (cells.length) rows.push(cells); }); return rows; }
 
 // ========== GITHUB ==========
 function getGhSettings() { try { const s = localStorage.getItem(GH_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
-
-async function pushToGh(path, content) {
-  const s = getGhSettings(); if (!s?.token?.trim()) throw new Error('Настройте GitHub');
-  const token = s.token.trim(), apiUrl = `https://api.github.com/repos/${s.username}/${s.repo}/contents/${path}`;
-  const encoded = btoa(unescape(encodeURIComponent(content)));
-  console.log(`📤 ${path}: ${(new Blob([content]).size / (1024 * 1024)).toFixed(1)}MB`);
-  let sha = null;
-  try {
-    const r = await fetch(apiUrl + '?ref=' + (s.branch || 'main'), { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'X-GitHub-Api-Version': '2022-11-28' } });
-    if (r.ok) sha = (await r.json()).sha; else if (r.status === 401) throw new Error('Неверный токен');
-  } catch (e) { if (e.message === 'Неверный токен') throw e; }
-  const body = { message: `Update ${path}`, content: encoded, branch: s.branch || 'main' }; if (sha) body.sha = sha;
-  const r = await fetch(apiUrl, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' }, body: JSON.stringify(body) });
-  if (!r.ok) { const err = await r.json().catch(() => ({})); if (r.status === 401) throw new Error('Неверный токен'); if (r.status === 422) throw new Error('Файл слишком большой'); throw new Error(err.message || 'HTTP ' + r.status); }
-  console.log(`✅ ${path} отправлен`);
-}
-
-async function saveToGithub() {
-  const s = getGhSettings(); if (!s?.token?.trim()) { openModal("githubModal"); return; }
-  const progress = document.getElementById("githubProgress"); if (progress) progress.classList.add("show");
-  try {
-    const watches = loadWatchesSync();
-    const watchesWithImages = watches.map(w => ({ ...w, images: w.images || [] }));
-    catalogData = watchesWithImages;
-    if (canUseStorage) localStorage.setItem(LS_KEY, JSON.stringify(catalogData));
-    const dataJsonContent = JSON.stringify(watchesWithImages, null, 2);
-    let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
-    html = html.replace(/<script id="catalog-data" type="application\/json">[\s\S]*?<\/script>/, `<script id="catalog-data" type="application\/json">${JSON.stringify(watchesWithImages).replace(/<\//g, "<\\/")}<\/script>`);
-    await pushToGh('data.json', dataJsonContent);
-    await pushToGh('index.html', html);
-    if (progress) progress.classList.remove("show");
-    alert('✅ Сохранено!\n\nhttps://' + s.username + '.github.io/' + s.repo + '/');
-  } catch (e) { if (progress) progress.classList.remove("show"); alert('❌ ' + e.message); }
-}
+async function pushToGh(path, content) { const s = getGhSettings(); if (!s?.token?.trim()) throw new Error('Настройте GitHub'); const token = s.token.trim(), apiUrl = `https://api.github.com/repos/${s.username}/${s.repo}/contents/${path}`; const encoded = btoa(unescape(encodeURIComponent(content))); let sha = null; try { const r = await fetch(apiUrl + '?ref=' + (s.branch || 'main'), { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'X-GitHub-Api-Version': '2022-11-28' } }); if (r.ok) sha = (await r.json()).sha; else if (r.status === 401) throw new Error('Неверный токен'); } catch (e) { if (e.message === 'Неверный токен') throw e; } const body = { message: `Update ${path}`, content: encoded, branch: s.branch || 'main' }; if (sha) body.sha = sha; const r = await fetch(apiUrl, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' }, body: JSON.stringify(body) }); if (!r.ok) { const err = await r.json().catch(() => ({})); if (r.status === 401) throw new Error('Неверный токен'); if (r.status === 422) throw new Error('Файл слишком большой'); throw new Error(err.message || 'HTTP ' + r.status); } }
+async function saveToGithub() { const s = getGhSettings(); if (!s?.token?.trim()) { openModal("githubModal"); return; } const progress = document.getElementById("githubProgress"); if (progress) progress.classList.add("show"); try { const watches = loadWatchesSync(); const watchesWithImages = watches.map(w => ({ ...w, images: w.images || [] })); catalogData = watchesWithImages; if (canUseStorage) localStorage.setItem(LS_KEY, JSON.stringify(catalogData)); const dataJsonContent = JSON.stringify(watchesWithImages, null, 2); let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML; html = html.replace(/<script id="catalog-data" type="application\/json">[\s\S]*?<\/script>/, `<script id="catalog-data" type="application\/json">${JSON.stringify(watchesWithImages).replace(/<\//g, "<\\/")}<\/script>`); await pushToGh('data.json', dataJsonContent); await pushToGh('index.html', html); if (progress) progress.classList.remove("show"); alert('✅ Сохранено!\n\nhttps://' + s.username + '.github.io/' + s.repo + '/'); } catch (e) { if (progress) progress.classList.remove("show"); alert('❌ ' + e.message); } }
 
 // ========== ФОРМАТИРОВАНИЕ ==========
 function fmtPrice(n) { return Number(n).toLocaleString("ru-RU") + " ₸"; }
 function stockInfo(qty) { const q = Number(qty); if (!q) return { cls: "out", text: "Нет в наличии" }; if (q <= 3) return { cls: "low", text: `В наличии: ${q} шт.` }; return { cls: "in", text: `В наличии: ${q} шт.` }; }
 function placeholderSVG() { return '<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f5d98a"/><stop offset="100%" stop-color="#d4af37"/></linearGradient></defs><circle cx="50" cy="50" r="28" fill="none" stroke="url(#g)" stroke-width="2.5"/><circle cx="50" cy="50" r="22" fill="none" stroke="url(#g)" stroke-width="1" opacity=".6"/><line x1="50" y1="50" x2="50" y2="34" stroke="url(#g)" stroke-width="2" stroke-linecap="round"/><line x1="50" y1="50" x2="62" y2="50" stroke="url(#g)" stroke-width="2" stroke-linecap="round"/></svg>'; }
 function escapeHtml(s) { if (!s) return ""; return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
-function getFilteredWatches() { let w = loadWatchesSync(); if (currentCategory !== "all") w = w.filter(x => x.category === currentCategory); if (priceFilterMin !== null) w = w.filter(x => x.price >= priceFilterMin); if (priceFilterMax !== null) w = w.filter(x => x.price <= priceFilterMax); if (searchQuery) { const q = searchQuery.toLowerCase(); w = w.filter(x => (x.name || '').toLowerCase().includes(q) || (x.desc || '').toLowerCase().includes(q) || (x.article || '').toLowerCase().includes(q)); } return w; }
 
 // ========== ЛАЙТБОКС ==========
 let lbImages = [], lbIdx = 0, lbArticle = "", lbPrice = "";
 function openLightbox(images, article, price, startIdx) { if (!images?.length) return; lbImages = images; lbIdx = startIdx || 0; lbArticle = article || ""; lbPrice = price || ""; renderLightbox(); const el = document.getElementById("lightbox"); if (el) el.classList.add("open"); document.body.style.overflow = "hidden"; }
 function closeLightbox() { const el = document.getElementById("lightbox"); if (el) el.classList.remove("open"); document.body.style.overflow = ""; }
-function renderLightbox() {
-  const img = document.getElementById("lightboxImg"); if (img) img.src = lbImages[lbIdx];
-  const art = document.getElementById("lightboxArticle"); if (art) art.textContent = lbArticle ? "Артикул: " + lbArticle : "";
-  const pr = document.getElementById("lightboxPrice"); if (pr) pr.textContent = lbPrice;
-  const dots = document.getElementById("lightboxDots");
-  if (dots && lbImages.length > 1) {
-    dots.innerHTML = lbImages.map((_, k) => `<button class="lightbox-dot${k === lbIdx ? ' active' : ''}" data-k="${k}"></button>`).join("");
-    dots.style.display = "flex";
-    const prev = document.getElementById("lightboxPrev"); if (prev) prev.style.display = "flex";
-    const next = document.getElementById("lightboxNext"); if (next) next.style.display = "flex";
-    dots.querySelectorAll(".lightbox-dot").forEach(d => d.onclick = () => { lbIdx = +d.getAttribute("data-k"); renderLightbox(); });
-  } else {
-    if (dots) dots.style.display = "none";
-    const prev = document.getElementById("lightboxPrev"); if (prev) prev.style.display = "none";
-    const next = document.getElementById("lightboxNext"); if (next) next.style.display = "none";
-  }
-}
+function renderLightbox() { const img = document.getElementById("lightboxImg"); if (img) img.src = lbImages[lbIdx]; const art = document.getElementById("lightboxArticle"); if (art) art.textContent = lbArticle ? "Артикул: " + lbArticle : ""; const pr = document.getElementById("lightboxPrice"); if (pr) pr.textContent = lbPrice; const dots = document.getElementById("lightboxDots"); if (dots && lbImages.length > 1) { dots.innerHTML = lbImages.map((_, k) => `<button class="lightbox-dot${k === lbIdx ? ' active' : ''}" data-k="${k}"></button>`).join(""); dots.style.display = "flex"; const prev = document.getElementById("lightboxPrev"); if (prev) prev.style.display = "flex"; const next = document.getElementById("lightboxNext"); if (next) next.style.display = "flex"; dots.querySelectorAll(".lightbox-dot").forEach(d => d.onclick = () => { lbIdx = +d.getAttribute("data-k"); renderLightbox(); }); } else { if (dots) dots.style.display = "none"; const prev = document.getElementById("lightboxPrev"); if (prev) prev.style.display = "none"; const next = document.getElementById("lightboxNext"); if (next) next.style.display = "none"; } }
 function lbPrev() { lbIdx = (lbIdx - 1 + lbImages.length) % lbImages.length; renderLightbox(); }
 function lbNext() { lbIdx = (lbIdx + 1) % lbImages.length; renderLightbox(); }
 
@@ -433,44 +192,56 @@ function openModal(id) { const el = document.getElementById(id); if (el) el.clas
 function closeModal(id) { const el = document.getElementById(id); if (el) el.classList.remove("open"); }
 
 // ========== ИЗБРАННОЕ МОДАЛКА ==========
-function openFavModal() {
-  const list = document.getElementById("favList"), copyArea = document.getElementById("favCopyArea"), copyBtn = document.getElementById("copyFavBtn");
-  const all = loadWatchesSync();
-  if (!favorites.length) { if (list) list.innerHTML = '<div class="empty-fav">Список пуст.</div>'; if (copyArea) copyArea.style.display = "none"; if (copyBtn) copyBtn.style.display = "none"; openModal("favModal"); return; }
-  let html = "", arts = [];
-  favorites.forEach(article => {
-    const w = all.find(x => x.article === article);
-    if (w) {
-      arts.push(w.article);
-      const img = w.images?.[0] ? `<img src="${w.images[0]}" alt="">` : placeholderSVG();
-      html += `<div class="fav-item"><div class="fav-item-img">${img}</div><div class="fav-item-info"><div class="fav-item-article">${escapeHtml(w.article)}</div><div class="fav-item-desc">${escapeHtml(w.name || w.desc)}</div><div class="fav-item-price">${fmtPrice(w.price)}</div></div><button class="fav-remove" data-article="${escapeHtml(w.article)}">×</button></div>`;
+function openFavModal() { const list = document.getElementById("favList"), copyArea = document.getElementById("favCopyArea"), copyBtn = document.getElementById("copyFavBtn"); const all = loadWatchesSync(); if (!favorites.length) { if (list) list.innerHTML = '<div class="empty-fav">Список пуст.</div>'; if (copyArea) copyArea.style.display = "none"; if (copyBtn) copyBtn.style.display = "none"; openModal("favModal"); return; } let html = "", arts = []; favorites.forEach(article => { const w = all.find(x => x.article === article); if (w) { arts.push(w.article); const img = w.images?.[0] ? `<img src="${w.images[0]}" alt="">` : placeholderSVG(); html += `<div class="fav-item"><div class="fav-item-img">${img}</div><div class="fav-item-info"><div class="fav-item-article">${escapeHtml(w.article)}</div><div class="fav-item-desc">${escapeHtml(w.name || w.desc)}</div><div class="fav-item-price">${fmtPrice(w.price)}</div></div><button class="fav-remove" data-article="${escapeHtml(w.article)}">×</button></div>`; } }); if (list) list.innerHTML = html; if (copyArea) { copyArea.textContent = arts.join(", "); copyArea.style.display = "block"; } if (copyBtn) copyBtn.style.display = "inline-block"; if (list) list.querySelectorAll(".fav-remove").forEach(b => b.onclick = () => toggleFav(b.getAttribute("data-article"))); openModal("favModal"); }
+function fallbackCopy(text) { const ta = document.createElement("textarea"); ta.value = text; ta.style.cssText = "position:fixed;left:-9999px"; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch (e) {} document.body.removeChild(ta); const btn = document.getElementById("copyFavBtn"); if (btn) { btn.textContent = "✅ Скопировано!"; setTimeout(() => btn.textContent = "📋 Скопировать артикулы", 2000); } }
+
+// ========== ПАГИНАЦИЯ ==========
+function renderPagination(container) {
+  if (totalPages <= 1) { container.innerHTML = ''; return; }
+  
+  let html = '<div class="pagination">';
+  
+  // Кнопка "Назад"
+  html += `<button class="page-btn" onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>‹ Назад</button>`;
+  
+  // Страницы
+  for (let i = 1; i <= totalPages; i++) {
+    if (totalPages <= 7 || i === 1 || i === totalPages || Math.abs(i - currentPage) <= 1) {
+      html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+    } else if (i === 2 || i === totalPages - 1) {
+      html += '<span class="page-dots">…</span>';
     }
-  });
-  if (list) list.innerHTML = html;
-  if (copyArea) { copyArea.textContent = arts.join(", "); copyArea.style.display = "block"; }
-  if (copyBtn) copyBtn.style.display = "inline-block";
-  if (list) list.querySelectorAll(".fav-remove").forEach(b => b.onclick = () => toggleFav(b.getAttribute("data-article")));
-  openModal("favModal");
+  }
+  
+  // Кнопка "Вперёд"
+  html += `<button class="page-btn" onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Вперёд ›</button>`;
+  
+  html += `<span class="page-info">Стр. ${currentPage} из ${totalPages}</span>`;
+  html += '</div>';
+  
+  container.innerHTML = html;
 }
 
-function fallbackCopy(text) {
-  const ta = document.createElement("textarea"); ta.value = text; ta.style.cssText = "position:fixed;left:-9999px";
-  document.body.appendChild(ta); ta.select();
-  try { document.execCommand("copy"); } catch (e) {}
-  document.body.removeChild(ta);
-  const btn = document.getElementById("copyFavBtn");
-  if (btn) { btn.textContent = "✅ Скопировано!"; setTimeout(() => btn.textContent = "📋 Скопировать артикулы", 2000); }
+function goToPage(page) {
+  if (page < 1 || page > totalPages) return;
+  currentPage = page;
+  render();
+  window.scrollTo({ top: document.getElementById("grid").offsetTop - 100, behavior: 'smooth' });
 }
 
 // ========== РЕНДЕР ==========
 async function render() {
   const grid = document.getElementById("grid"); if (!grid) return;
   if (!catalogData.length) await loadDataFromFile();
-  const watches = getFilteredWatches(), all = loadWatchesSync();
+  
+  const watches = getPageWatches();
+  const allFiltered = getFilteredWatches();
   document.body.classList.toggle("authed", isAuthed);
+  
   const info = document.getElementById("resultsInfo");
-  if (info) info.innerHTML = (currentCategory !== "all" || priceFilterMin !== null || priceFilterMax !== null || searchQuery) ? `Найдено: <b>${watches.length}</b> из <b>${all.length}</b>` : "";
-  if (!watches.length) { grid.innerHTML = '<div class="empty">Ничего не найдено.</div>'; return; }
+  if (info) info.innerHTML = (currentCategory !== "all" || priceFilterMin !== null || priceFilterMax !== null || searchQuery) ? `Найдено: <b>${allFiltered.length}</b> моделей (стр. ${currentPage} из ${totalPages})` : `Всего: <b>${allFiltered.length}</b> моделей`;
+  
+  if (!watches.length) { grid.innerHTML = '<div class="empty">Ничего не найдено.</div>'; const pagDiv = document.getElementById("pagination"); if (pagDiv) pagDiv.innerHTML = ''; return; }
   
   let html = '';
   watches.forEach((w, i) => {
@@ -498,72 +269,34 @@ async function render() {
   });
   
   grid.innerHTML = html;
+  
+  // Рендерим пагинацию
+  let pagDiv = document.getElementById("pagination");
+  if (!pagDiv) {
+    pagDiv = document.createElement('div');
+    pagDiv.id = 'pagination';
+    grid.parentNode.insertBefore(pagDiv, grid.nextSibling);
+  }
+  renderPagination(pagDiv);
+  
   initSliders();
   initCardEvents();
   updateFavCount();
 }
 
 // ========== КАРТОЧКИ ==========
-function initCardEvents() {
-  document.querySelectorAll(".card").forEach(card => {
-    card.onclick = function(e) {
-      if (e.target.closest(".fav-btn,.icon-btn,.slider-arrow,.slider-dot")) return;
-      const w = loadWatchesSync().find(w => w.article === this.getAttribute("data-article"));
-      if (w?.images?.length) openLightbox(w.images, w.article, fmtPrice(w.price), 0);
-    };
-  });
-  document.querySelectorAll(".fav-btn").forEach(b => b.onclick = function(e) { e.stopPropagation(); e.preventDefault(); toggleFav(this.getAttribute("data-fav")); return false; });
-  document.querySelectorAll("[data-edit-article]").forEach(b => b.onclick = function(e) { e.stopPropagation(); const i = loadWatchesSync().findIndex(w => w.article === this.getAttribute("data-edit-article")); if (i >= 0) openEdit(i); });
-  document.querySelectorAll("[data-del-article]").forEach(b => b.onclick = function(e) { e.stopPropagation(); if (confirm("Удалить?")) { const list = loadWatchesSync(); const i = list.findIndex(w => w.article === this.getAttribute("data-del-article")); if (i >= 0) { list.splice(i, 1); saveWatches(list); render(); } } });
-}
+function initCardEvents() { document.querySelectorAll(".card").forEach(card => { card.onclick = function(e) { if (e.target.closest(".fav-btn,.icon-btn,.slider-arrow,.slider-dot")) return; const w = loadWatchesSync().find(w => w.article === this.getAttribute("data-article")); if (w?.images?.length) openLightbox(w.images, w.article, fmtPrice(w.price), 0); }; }); document.querySelectorAll(".fav-btn").forEach(b => b.onclick = function(e) { e.stopPropagation(); e.preventDefault(); toggleFav(this.getAttribute("data-fav")); return false; }); document.querySelectorAll("[data-edit-article]").forEach(b => b.onclick = function(e) { e.stopPropagation(); const i = loadWatchesSync().findIndex(w => w.article === this.getAttribute("data-edit-article")); if (i >= 0) openEdit(i); }); document.querySelectorAll("[data-del-article]").forEach(b => b.onclick = function(e) { e.stopPropagation(); if (confirm("Удалить?")) { const list = loadWatchesSync(); const i = list.findIndex(w => w.article === this.getAttribute("data-del-article")); if (i >= 0) { list.splice(i, 1); saveWatches(list); render(); } } }); }
 
 // ========== СЛАЙДЕРЫ ==========
-function initSliders() {
-  document.querySelectorAll("[data-slider]").forEach(slider => {
-    const slides = slider.querySelector(".slides"), dots = slider.querySelectorAll(".slider-dot"), arrows = slider.querySelectorAll(".slider-arrow");
-    if (!slides || slides.children.length < 2) return;
-    const total = slides.children.length; let idx = 0;
-    let counter = slider.querySelector('.photo-counter');
-    if (!counter) { counter = document.createElement('div'); counter.className = 'photo-counter'; slider.appendChild(counter); }
-    const go = n => { idx = (n + total) % total; if (idx < 0) idx = total - 1; slides.style.transform = `translateX(-${idx * 100}%)`; dots.forEach((d, k) => d.classList.toggle("active", k === idx)); counter.textContent = `${idx + 1}/${total}`; };
-    counter.textContent = `1/${total}`;
-    arrows.forEach(a => a.onclick = e => { e.stopPropagation(); go(idx + parseInt(a.getAttribute("data-dir"))); });
-    dots.forEach((d, j) => d.onclick = e => { e.stopPropagation(); go(j); });
-    let sx = 0, dx = 0, dragging = false;
-    slides.addEventListener("touchstart", e => { sx = e.touches[0].clientX; dx = 0; dragging = true; slides.style.transition = "none"; }, { passive: true });
-    slides.addEventListener("touchmove", e => { if (!dragging) return; dx = e.touches[0].clientX - sx; slides.style.transform = `translateX(${-idx * slides.offsetWidth + dx}px)`; }, { passive: true });
-    slides.addEventListener("touchend", () => { if (!dragging) return; dragging = false; slides.style.transition = "transform 0.3s ease-out"; if (dx < -slides.offsetWidth * 0.2) go(idx + 1); else if (dx > slides.offsetWidth * 0.2) go(idx - 1); else go(idx); }, { passive: true });
-  });
-}
+function initSliders() { document.querySelectorAll("[data-slider]").forEach(slider => { const slides = slider.querySelector(".slides"), dots = slider.querySelectorAll(".slider-dot"), arrows = slider.querySelectorAll(".slider-arrow"); if (!slides || slides.children.length < 2) return; const total = slides.children.length; let idx = 0; let counter = slider.querySelector('.photo-counter'); if (!counter) { counter = document.createElement('div'); counter.className = 'photo-counter'; slider.appendChild(counter); } const go = n => { idx = (n + total) % total; if (idx < 0) idx = total - 1; slides.style.transform = `translateX(-${idx * 100}%)`; dots.forEach((d, k) => d.classList.toggle("active", k === idx)); counter.textContent = `${idx + 1}/${total}`; }; counter.textContent = `1/${total}`; arrows.forEach(a => a.onclick = e => { e.stopPropagation(); go(idx + parseInt(a.getAttribute("data-dir"))); }); dots.forEach((d, j) => d.onclick = e => { e.stopPropagation(); go(j); }); let sx = 0, dx = 0, dragging = false; slides.addEventListener("touchstart", e => { sx = e.touches[0].clientX; dx = 0; dragging = true; slides.style.transition = "none"; }, { passive: true }); slides.addEventListener("touchmove", e => { if (!dragging) return; dx = e.touches[0].clientX - sx; slides.style.transform = `translateX(${-idx * slides.offsetWidth + dx}px)`; }, { passive: true }); slides.addEventListener("touchend", () => { if (!dragging) return; dragging = false; slides.style.transition = "transform 0.3s ease-out"; if (dx < -slides.offsetWidth * 0.2) go(idx + 1); else if (dx > slides.offsetWidth * 0.2) go(idx - 1); else go(idx); }, { passive: true }); }); }
 
 // ========== АВТОРИЗАЦИЯ ==========
-function updateAuthUI() {
-  const area = document.getElementById("authArea"); if (!area) return;
-  
-  if (isAuthed) {
-    area.innerHTML = `<button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn btn-gold" id="addBtn">+ Добавить</button><button class="btn btn-gold" id="githubBtnTop">🚀 СОХРАНИТЬ!!!</button><button class="btn" id="excelBtnTop">📥Сохранить Excel</button><button class="btn" id="uploadExcelBtnTop">📤 Загрузить свой Excel</button><button class="btn" id="logoutBtn">Выйти</button>`;
-    const addBtn = document.getElementById("addBtn"); if (addBtn) addBtn.onclick = openAddModal;
-    const ghBtn = document.getElementById("githubBtnTop"); if (ghBtn) ghBtn.onclick = saveToGithub;
-    const exBtn = document.getElementById("excelBtnTop"); if (exBtn) exBtn.onclick = downloadExcel;
-    const upBtn = document.getElementById("uploadExcelBtnTop"); if (upBtn) upBtn.onclick = uploadExcel;
-    const svBtn = document.getElementById("saveBtnTop"); if (svBtn) svBtn.onclick = saveToFile;
-    const loBtn = document.getElementById("logoutBtn"); if (loBtn) loBtn.onclick = () => { isAuthed = false; updateAuthUI(); render(); };
-    const fvBtn = document.getElementById("favBtnAuthed"); if (fvBtn) fvBtn.onclick = openFavModal;
-    const banner = document.getElementById("saveBanner"); if (banner) banner.style.display = "block";
-  } else {
-    area.innerHTML = `<button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn" id="loginBtn">Войти</button>`;
-    const liBtn = document.getElementById("loginBtn"); if (liBtn) liBtn.onclick = () => openModal("loginModal");
-    const fvBtn = document.getElementById("favBtnGuest"); if (fvBtn) fvBtn.onclick = openFavModal;
-    const banner = document.getElementById("saveBanner"); if (banner) banner.style.display = "none";
-    document.body.classList.remove("authed");
-  }
-}
+function updateAuthUI() { const area = document.getElementById("authArea"); if (!area) return; if (isAuthed) { area.innerHTML = `<button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn btn-gold" id="addBtn">+ Добавить</button><button class="btn btn-gold" id="githubBtnTop">🚀 СОХРАНИТЬ!!!</button><button class="btn" id="excelBtnTop">📥Сохранить Excel</button><button class="btn" id="uploadExcelBtnTop">📤 Загрузить свой Excel</button><button class="btn" id="logoutBtn">Выйти</button>`; const addBtn = document.getElementById("addBtn"); if (addBtn) addBtn.onclick = openAddModal; const ghBtn = document.getElementById("githubBtnTop"); if (ghBtn) ghBtn.onclick = saveToGithub; const exBtn = document.getElementById("excelBtnTop"); if (exBtn) exBtn.onclick = downloadExcel; const upBtn = document.getElementById("uploadExcelBtnTop"); if (upBtn) upBtn.onclick = uploadExcel; const svBtn = document.getElementById("saveBtnTop"); if (svBtn) svBtn.onclick = saveToFile; const loBtn = document.getElementById("logoutBtn"); if (loBtn) loBtn.onclick = () => { isAuthed = false; updateAuthUI(); render(); }; const fvBtn = document.getElementById("favBtnAuthed"); if (fvBtn) fvBtn.onclick = openFavModal; } else { area.innerHTML = `<button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn" id="loginBtn">Войти</button>`; const liBtn = document.getElementById("loginBtn"); if (liBtn) liBtn.onclick = () => openModal("loginModal"); const fvBtn = document.getElementById("favBtnGuest"); if (fvBtn) fvBtn.onclick = openFavModal; document.body.classList.remove("authed"); } }
 
 // ========== ДОБАВЛЕНИЕ/РЕДАКТИРОВАНИЕ ==========
 let pendingAddImages = [];
 function openAddModal() { pendingAddImages = []; const cat = document.getElementById("fCategory"); if (cat) cat.value = "men"; "fArticle fName fDesc fPrice fQty fImgFile".split(" ").forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; }); const err = document.getElementById("addErr"); if (err) err.textContent = ""; renderAddThumbs(); openModal("addModal"); }
 function renderAddThumbs() { const box = document.getElementById("addThumbs"); if (!box) return; box.innerHTML = pendingAddImages.map((s, k) => `<div class="thumb-item"><img src="${s}"><button class="thumb-remove" data-k="${k}">×</button></div>`).join(""); box.querySelectorAll(".thumb-remove").forEach(b => b.onclick = () => { pendingAddImages.splice(+b.getAttribute("data-k"), 1); renderAddThumbs(); }); }
-
 let editingIndex = -1, editExisting = [], editNew = [];
 function openEdit(i) { const w = loadWatchesSync()[i]; if (!w) return; editingIndex = i; editExisting = (w.images || []).slice(); editNew = []; const ec = document.getElementById("eCategory"); if (ec) ec.value = w.category || "men"; const ea = document.getElementById("eArticle"); if (ea) ea.value = w.article || ""; const en = document.getElementById("eName"); if (en) en.value = w.name || ""; const ed = document.getElementById("eDesc"); if (ed) ed.value = w.desc || ""; const ep = document.getElementById("ePrice"); if (ep) ep.value = w.price; const eq = document.getElementById("eQty"); if (eq) eq.value = w.qty; const ei = document.getElementById("eImgFile"); if (ei) ei.value = ""; const ee = document.getElementById("editErr"); if (ee) ee.textContent = ""; renderEditThumbs(); renderEditNewThumbs(); openModal("editModal"); }
 function renderEditThumbs() { const box = document.getElementById("editThumbs"); if (!box) return; if (!editExisting.length) { box.innerHTML = '<div style="color:#8a8a94;font-size:12px">Нет фото</div>'; return; } box.innerHTML = editExisting.map((s, k) => `<div class="thumb-item"><img src="${s}"><button class="thumb-remove" data-k="${k}">×</button></div>`).join(""); box.querySelectorAll(".thumb-remove").forEach(b => b.onclick = () => { if (confirm('Удалить фото?')) { editExisting.splice(+b.getAttribute("data-k"), 1); renderEditThumbs(); } }); }
@@ -576,26 +309,13 @@ function setupDragDrop() { document.querySelectorAll('.file-input').forEach(zone
 function setupScrollTop() { const btn = document.getElementById("scrollTopBtn"); if (!btn) return; window.addEventListener('scroll', () => btn.classList.toggle('show', window.scrollY > 500)); btn.addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' })); }
 
 // ========== ПОИСК ==========
-function setupSearch() { const inp = document.getElementById("searchInput"); if (!inp) return; inp.addEventListener('input', function() { searchQuery = this.value.trim(); render(); }); }
+function setupSearch() { const inp = document.getElementById("searchInput"); if (!inp) return; inp.addEventListener('input', function() { searchQuery = this.value.trim(); currentPage = 1; render(); }); }
 
 // ========== ПРЕЛОАДЕР ==========
 function hidePreloader() { setTimeout(() => { const el = document.getElementById('preloader'); if (el) el.classList.add('hidden'); }, 500); }
 
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
-async function initApp() {
-  isAuthed = false;
-  sessionStorage.clear();
-  if (canUseStorage) {
-    for (let i = 5; i <= 17; i++) { try { localStorage.removeItem('mdt_admin_auth_v' + i); } catch (e) {} }
-    try { localStorage.removeItem('mdt_authed'); } catch (e) {}
-  }
-  console.log('🔒 Гость');
-  favorites = loadFavorites();
-  saveFavorites();
-  updateAuthUI();
-  await render();
-  hidePreloader();
-}
+async function initApp() { isAuthed = false; sessionStorage.clear(); if (canUseStorage) { for (let i = 5; i <= 17; i++) { try { localStorage.removeItem('mdt_admin_auth_v' + i); } catch (e) {} } try { localStorage.removeItem('mdt_authed'); } catch (e) {} } favorites = loadFavorites(); saveFavorites(); updateAuthUI(); await render(); hidePreloader(); }
 
 // ========== ОБРАБОТЧИКИ ==========
 function bindEvents() {
@@ -606,52 +326,31 @@ function bindEvents() {
   on("lightboxPrev", "onclick", e => { e.stopPropagation(); lbPrev(); });
   on("lightboxNext", "onclick", e => { e.stopPropagation(); lbNext(); });
   const lb = $("lightbox"); if (lb) lb.onclick = e => { if (e.target === e.currentTarget) closeLightbox(); };
-  
   on("copyFavBtn", "onclick", function() { const t = $("favCopyArea"); if (!t) return; const text = t.textContent; (navigator.clipboard?.writeText ? navigator.clipboard.writeText(text).then(() => { this.textContent = "✅ Скопировано!"; setTimeout(() => this.textContent = "📋 Скопировать артикулы", 2000); }) : Promise.reject()).catch(() => fallbackCopy(text)); });
   on("closeFav", "onclick", () => closeModal("favModal"));
   on("closeLogin", "onclick", () => closeModal("loginModal"));
   on("closeAdd", "onclick", () => closeModal("addModal"));
   on("closeEdit", "onclick", () => closeModal("editModal"));
   on("closeGithub", "onclick", () => closeModal("githubModal"));
-  
   on("doLogin", "onclick", function() { const err = $("loginErr"); if (err) err.textContent = ""; const u = $("loginUser"), p = $("loginPass"); if (!u || !p) return; if (u.value.trim() === AUTH.user && p.value === AUTH.pass) { isAuthed = true; closeModal("loginModal"); u.value = ""; p.value = ""; updateAuthUI(); render(); } else if (err) err.textContent = "Неверный логин или пароль"; });
   on("fImgFile", "onchange", async function() { const files = Array.from(this.files || []); if (!files.length) return; pendingAddImages = pendingAddImages.concat(await compressFiles(files)); renderAddThumbs(); this.value = ""; });
-  on("doAdd", "onclick", function() { const err = $("addErr"); if (err) err.textContent = ""; const name = $("fName")?.value?.trim() || '', desc = $("fDesc")?.value?.trim() || '', price = $("fPrice")?.value || ''; if (!name && !desc) { if (err) err.textContent = "Укажите название или описание"; return; } if (price === "" || +price < 0) { if (err) err.textContent = "Укажите цену"; return; } loadWatchesSync().push({ category: $("fCategory")?.value || 'men', article: $("fArticle")?.value?.trim() || '', name, desc, price: +price, qty: $("fQty")?.value === "" ? 0 : +$("fQty").value, images: pendingAddImages.slice() }); saveWatches(loadWatchesSync()); closeModal("addModal"); render(); });
+  on("doAdd", "onclick", function() { const err = $("addErr"); if (err) err.textContent = ""; const name = $("fName")?.value?.trim() || '', desc = $("fDesc")?.value?.trim() || '', price = $("fPrice")?.value || ''; if (!name && !desc) { if (err) err.textContent = "Укажите название или описание"; return; } if (price === "" || +price < 0) { if (err) err.textContent = "Укажите цену"; return; } loadWatchesSync().push({ category: $("fCategory")?.value || 'men', article: $("fArticle")?.value?.trim() || '', name, desc, price: +price, qty: $("fQty")?.value === "" ? 0 : +$("fQty").value, images: pendingAddImages.slice() }); saveWatches(loadWatchesSync()); closeModal("addModal"); currentPage = Math.ceil(loadWatchesSync().length / ITEMS_PER_PAGE); render(); });
   on("eImgFile", "onchange", async function() { const files = Array.from(this.files || []); if (!files.length) return; editNew = editNew.concat(await compressFiles(files)); renderEditNewThumbs(); this.value = ""; });
   on("doEdit", "onclick", function() { const err = $("editErr"); if (err) err.textContent = ""; const name = $("eName")?.value?.trim() || '', desc = $("eDesc")?.value?.trim() || '', price = $("ePrice")?.value || ''; if (!name && !desc) { if (err) err.textContent = "Укажите название или описание"; return; } if (price === "" || +price < 0) { if (err) err.textContent = "Укажите цену"; return; } const list = loadWatchesSync(); if (!list[editingIndex]) { if (err) err.textContent = "Карточка не найдена"; return; } list[editingIndex] = { ...list[editingIndex], category: $("eCategory")?.value || 'men', article: $("eArticle")?.value?.trim() || '', name, desc, price: +price, qty: $("eQty")?.value === "" ? 0 : +$("eQty").value, images: editExisting.concat(editNew) }; saveWatches(list); closeModal("editModal"); render(); });
-  
   on("saveBtn", "onclick", saveToFile);
   on("excelBtn", "onclick", downloadExcel);
   on("uploadExcelBtn", "onclick", uploadExcel);
   on("excelFileInput", "onchange", handleExcelUpload);
   on("githubBtn", "onclick", saveToGithub);
-  
-  on("saveGithub", "onclick", async function() {
-    const err = $("githubErr");
-    const u = $("ghUser"), r = $("ghRepo"), t = $("ghToken"), b = $("ghBranch");
-    if (!u || !r || !t || !b) return;
-    const s = { username: u.value.trim(), repo: r.value.trim(), token: t.value.trim(), branch: b.value.trim() || "main" };
-    if (!s.username || !s.repo || !s.token) { if (err) err.textContent = "Заполните все поля"; return; }
-    if (!s.token.startsWith('ghp_') && !s.token.startsWith('github_pat_')) { if (err) err.textContent = "Токен должен начинаться с ghp_ или github_pat_"; return; }
-    localStorage.setItem(GH_KEY, JSON.stringify(s));
-    if (err) err.textContent = "";
-    closeModal("githubModal");
-    await saveToGithub();
-  });
-  
-  const catMenu = $("categoryMenu");
-  if (catMenu) catMenu.onclick = function(e) { const btn = e.target.closest(".cat-btn"); if (!btn) return; document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active")); btn.classList.add("active"); currentCategory = btn.getAttribute("data-cat"); render(); };
-  
-  on("applyFilter", "onclick", () => { const min = $("priceMin")?.value || '', max = $("priceMax")?.value || ''; priceFilterMin = min === "" ? null : +min; priceFilterMax = max === "" ? null : +max; render(); });
-  on("resetFilter", "onclick", () => { const mn = $("priceMin"), mx = $("priceMax"); if (mn) mn.value = ""; if (mx) mx.value = ""; priceFilterMin = null; priceFilterMax = null; render(); });
-  
-  const gs = getGhSettings();
-  if (gs) { const u = $("ghUser"); if (u) u.value = gs.username || ""; const r = $("ghRepo"); if (r) r.value = gs.repo || ""; const t = $("ghToken"); if (t) t.value = gs.token || ""; const b = $("ghBranch"); if (b) b.value = gs.branch || "main"; }
-  
+  on("saveGithub", "onclick", async function() { const err = $("githubErr"); const u = $("ghUser"), r = $("ghRepo"), t = $("ghToken"), b = $("ghBranch"); if (!u || !r || !t || !b) return; const s = { username: u.value.trim(), repo: r.value.trim(), token: t.value.trim(), branch: b.value.trim() || "main" }; if (!s.username || !s.repo || !s.token) { if (err) err.textContent = "Заполните все поля"; return; } if (!s.token.startsWith('ghp_') && !s.token.startsWith('github_pat_')) { if (err) err.textContent = "Токен должен начинаться с ghp_ или github_pat_"; return; } localStorage.setItem(GH_KEY, JSON.stringify(s)); if (err) err.textContent = ""; closeModal("githubModal"); await saveToGithub(); });
+  const catMenu = $("categoryMenu"); if (catMenu) catMenu.onclick = function(e) { const btn = e.target.closest(".cat-btn"); if (!btn) return; document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active")); btn.classList.add("active"); currentCategory = btn.getAttribute("data-cat"); currentPage = 1; render(); };
+  on("applyFilter", "onclick", () => { const min = $("priceMin")?.value || '', max = $("priceMax")?.value || ''; priceFilterMin = min === "" ? null : +min; priceFilterMax = max === "" ? null : +max; currentPage = 1; render(); });
+  on("resetFilter", "onclick", () => { const mn = $("priceMin"), mx = $("priceMax"); if (mn) mn.value = ""; if (mx) mx.value = ""; priceFilterMin = null; priceFilterMax = null; currentPage = 1; render(); });
+  const gs = getGhSettings(); if (gs) { const u = $("ghUser"); if (u) u.value = gs.username || ""; const r = $("ghRepo"); if (r) r.value = gs.repo || ""; const t = $("ghToken"); if (t) t.value = gs.token || ""; const b = $("ghBranch"); if (b) b.value = gs.branch || "main"; }
   setupDragDrop(); setupScrollTop(); setupSearch();
 }
 
 // ========== ЗАПУСК ==========
-console.log('🚀 TEMPUS KZ v18 — автоочистка кеша');
+console.log('🚀 TEMPUS KZ v19 — пагинация 12 карточек');
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { bindEvents(); initApp(); });
 else { bindEvents(); initApp(); }
