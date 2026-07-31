@@ -1,14 +1,14 @@
 // ========== ОЧИСТКА КЕША ==========
 (function() {
-  const KEY = 'mdt_cache_v14';
+  const KEY = 'mdt_cache_v15';
   if (localStorage.getItem(KEY) === 'true') return;
-  console.log('🧹 v14 — очистка');
+  console.log('🧹 v15 — очистка');
   try {
     const favs = localStorage.getItem('mdt_favorites_v1');
-    const gh = localStorage.getItem('mdt_github_v14');
+    const gh = localStorage.getItem('mdt_github_v15');
     localStorage.clear();
     if (favs) localStorage.setItem('mdt_favorites_v1', favs);
-    if (gh) localStorage.setItem('mdt_github_v14', gh);
+    if (gh) localStorage.setItem('mdt_github_v15', gh);
     localStorage.setItem(KEY, 'true');
   } catch(e) {}
 })();
@@ -17,7 +17,7 @@
 const AUTH = { user: "anastasia_zy_zy", pass: "anastasia_zy_zy" };
 const LS_KEY = "mdt_watches_v2";
 const FAV_KEY = "mdt_favorites_v1";
-const GH_KEY = "mdt_github_v14";
+const GH_KEY = "mdt_github_v15";
 const DATA_URL = 'data.json';
 
 let canUseStorage = false;
@@ -26,6 +26,7 @@ try { localStorage.setItem('__t','1'); localStorage.removeItem('__t'); canUseSto
 let isAuthed = false;
 let currentCategory = "all";
 let priceFilterMin = null, priceFilterMax = null;
+let searchQuery = '';
 let favorites = [];
 let catalogData = [];
 
@@ -163,39 +164,26 @@ async function saveToFile() {
 // ========== EXCEL СКАЧИВАНИЕ ==========
 function downloadExcel() {
   const watches = loadWatchesSync();
-  
-  const rows = [];
-  rows.push(['Артикул', 'Название', 'Описание', 'Категория', 'Цена (₸)', 'Количество', 'Наличие']);
+  const rows = [['Артикул', 'Название', 'Описание', 'Категория', 'Цена (₸)', 'Количество', 'Наличие']];
   
   watches.forEach(w => {
-    const stock = w.qty > 3 ? 'В наличии' : w.qty > 0 ? 'Заканчивается' : 'Нет';
     rows.push([
-      w.article || '',
-      w.name || '',
-      w.desc || '',
+      w.article || '', w.name || '', w.desc || '',
       w.category === 'women' ? 'Женские' : 'Мужские',
-      w.price || 0,
-      w.qty || 0,
-      stock
+      w.price || 0, w.qty || 0,
+      w.qty > 3 ? 'В наличии' : w.qty > 0 ? 'Заканчивается' : 'Нет'
     ]);
   });
   
-  let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
-  xml += '<?mso-application progid="Excel.Sheet"?>\n';
-  xml += '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"\n';
-  xml += ' xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n';
-  
-  xml += '<Styles>\n';
-  xml += '  <Style ss:ID="Header"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/></Borders><Font ss:FontName="Calibri" ss:Size="12" ss:Bold="1" ss:Color="#1a1a1a"/><Interior ss:Color="#d4af37" ss:Pattern="Solid"/></Style>\n';
-  xml += '  <Style ss:ID="Normal"><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e0e0e0"/></Borders><Font ss:FontName="Calibri" ss:Size="11"/></Style>\n';
-  xml += '  <Style ss:ID="Price"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><NumberFormat ss:Format="#,##0"/><Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1"/></Style>\n';
-  xml += '  <Style ss:ID="Center"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Calibri" ss:Size="11"/></Style>\n';
-  xml += '  <Style ss:ID="InStock"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Calibri" ss:Size="11" ss:Color="#2ecc71"/></Style>\n';
-  xml += '  <Style ss:ID="LowStock"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Calibri" ss:Size="11" ss:Color="#e6b85c"/></Style>\n';
-  xml += '  <Style ss:ID="OutStock"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Calibri" ss:Size="11" ss:Color="#e74c3c"/></Style>\n';
-  xml += '</Styles>\n';
-  
-  xml += '<Worksheet ss:Name="Каталог часов">\n<Table>\n';
+  let xml = '<?xml version="1.0" encoding="UTF-8"?>\n<?mso-application progid="Excel.Sheet"?>\n<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">\n<Styles>\n';
+  xml += '<Style ss:ID="Header"><Alignment ss:Horizontal="Center" ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="2"/></Borders><Font ss:FontName="Calibri" ss:Size="12" ss:Bold="1" ss:Color="#1a1a1a"/><Interior ss:Color="#d4af37" ss:Pattern="Solid"/></Style>\n';
+  xml += '<Style ss:ID="Normal"><Alignment ss:Vertical="Center" ss:WrapText="1"/><Borders><Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#e0e0e0"/></Borders><Font ss:FontName="Calibri" ss:Size="11"/></Style>\n';
+  xml += '<Style ss:ID="Price"><Alignment ss:Horizontal="Right" ss:Vertical="Center"/><NumberFormat ss:Format="#,##0"/><Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1"/></Style>\n';
+  xml += '<Style ss:ID="Center"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Calibri" ss:Size="11"/></Style>\n';
+  xml += '<Style ss:ID="InStock"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Calibri" ss:Size="11" ss:Color="#2ecc71"/></Style>\n';
+  xml += '<Style ss:ID="LowStock"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Calibri" ss:Size="11" ss:Color="#e6b85c"/></Style>\n';
+  xml += '<Style ss:ID="OutStock"><Alignment ss:Horizontal="Center" ss:Vertical="Center"/><Font ss:FontName="Calibri" ss:Size="11" ss:Color="#e74c3c"/></Style>\n';
+  xml += '</Styles>\n<Worksheet ss:Name="Каталог часов">\n<Table>\n';
   xml += '<Column ss:Width="120"/><Column ss:Width="200"/><Column ss:Width="350"/><Column ss:Width="100"/><Column ss:Width="120"/><Column ss:Width="80"/><Column ss:Width="120"/>\n';
   
   rows.forEach((row, rowIdx) => {
@@ -210,7 +198,6 @@ function downloadExcel() {
         else if (cell === 'Заканчивается') style = 'LowStock';
         else style = 'OutStock';
       }
-      
       const safe = String(cell).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
       const type = (rowIdx > 0 && (colIdx === 4 || colIdx === 5)) ? 'Number' : 'String';
       xml += `<Cell ss:StyleID="${style}"><Data ss:Type="${type}">${safe}</Data></Cell>\n`;
@@ -228,35 +215,24 @@ function downloadExcel() {
 }
 
 // ========== EXCEL ЗАГРУЗКА ==========
-function uploadExcel() {
-  document.getElementById("excelFileInput").click();
-}
+function uploadExcel() { document.getElementById("excelFileInput").click(); }
 
 function handleExcelUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
   
   const reader = new FileReader();
-  
   reader.onload = function(e) {
     try {
       const data = e.target.result;
       let rows = [];
+      if (data.includes('<?xml') || data.includes('<Workbook')) rows = parseXmlExcel(data);
+      else rows = parseCSV(data);
       
-      if (data.includes('<?xml') || data.includes('<Workbook')) {
-        rows = parseXmlExcel(data);
-      } else {
-        rows = parseCSV(data);
-      }
+      if (rows.length < 2) { alert('❌ Файл пуст'); return; }
       
-      if (rows.length < 2) {
-        alert('❌ Файл пуст или не содержит данных');
-        return;
-      }
-      
-      const newWatches = [];
-      const existingWatches = loadWatchesSync();
-      let updatedCount = 0, addedCount = 0;
+      const newWatches = [], existingWatches = loadWatchesSync();
+      let updated = 0, added = 0;
       
       for (let i = 1; i < rows.length; i++) {
         const row = rows[i];
@@ -272,41 +248,22 @@ function handleExcelUpload(event) {
         const existingIdx = existingWatches.findIndex(w => w.article === article && article !== '');
         
         if (existingIdx >= 0) {
-          existingWatches[existingIdx] = {
-            ...existingWatches[existingIdx],
-            name: name || existingWatches[existingIdx].name,
-            desc: desc || existingWatches[existingIdx].desc,
-            category,
-            price,
-            qty
-          };
-          updatedCount++;
+          existingWatches[existingIdx] = { ...existingWatches[existingIdx], name: name || existingWatches[existingIdx].name, desc: desc || existingWatches[existingIdx].desc, category, price, qty };
+          updated++;
         } else {
-          newWatches.push({
-            article: article || ('TK-' + new Date().getFullYear() + '-' + String(Math.random()).substring(2, 6)),
-            name: name || 'Новая модель',
-            desc: desc || '',
-            category,
-            price,
-            qty,
-            images: []
-          });
-          addedCount++;
+          newWatches.push({ article: article || ('TK-' + new Date().getFullYear() + '-' + String(Math.random()).substring(2, 6)), name: name || 'Новая модель', desc: desc || '', category, price, qty, images: [] });
+          added++;
         }
       }
       
-      const allWatches = [...existingWatches, ...newWatches];
-      saveWatches(allWatches);
+      saveWatches([...existingWatches, ...newWatches]);
       render();
-      
-      alert(`✅ Готово!\n\n📝 Обновлено: ${updatedCount} моделей\n➕ Добавлено: ${addedCount} моделей\n📦 Всего: ${allWatches.length} моделей`);
-      
+      alert(`✅ Готово!\n\n📝 Обновлено: ${updated}\n➕ Добавлено: ${added}\n📦 Всего: ${existingWatches.length + newWatches.length}`);
     } catch (err) {
-      console.error('Ошибка:', err);
-      alert('❌ Ошибка чтения файла.\n\nСкачайте текущий каталог как образец (кнопка "📥 Скачать Excel").');
+      console.error(err);
+      alert('❌ Ошибка чтения файла. Скачайте каталог как образец.');
     }
   };
-  
   reader.readAsText(file, 'UTF-8');
   event.target.value = '';
 }
@@ -314,48 +271,35 @@ function handleExcelUpload(event) {
 function parseXmlExcel(xml) {
   const rows = [];
   const rowRegex = /<Row[^>]*>([\s\S]*?)<\/Row>/gi;
-  let rowMatch;
-  
-  while ((rowMatch = rowRegex.exec(xml)) !== null) {
+  let rm;
+  while ((rm = rowRegex.exec(xml)) !== null) {
     const cells = [];
     const cellRegex = /<Cell[^>]*>(?:<Data[^>]*>)?([\s\S]*?)(?:<\/Data>)?<\/Cell>/gi;
-    let cellMatch;
-    
-    while ((cellMatch = cellRegex.exec(rowMatch[1])) !== null) {
-      let value = cellMatch[1] || '';
-      value = value.replace(/<[^>]+>/g, '').trim();
-      value = value.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
-      cells.push(value);
+    let cm;
+    while ((cm = cellRegex.exec(rm[1])) !== null) {
+      let v = (cm[1] || '').replace(/<[^>]+>/g, '').trim();
+      v = v.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"');
+      cells.push(v);
     }
-    
-    if (cells.length > 0) rows.push(cells);
+    if (cells.length) rows.push(cells);
   }
-  
   return rows;
 }
 
 function parseCSV(csv) {
   const rows = [];
-  const lines = csv.split(/\r?\n/);
-  
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    
+  csv.split(/\r?\n/).forEach(line => {
+    if (!line.trim()) return;
     const cells = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      if (char === '"') { inQuotes = !inQuotes; }
-      else if ((char === ';' || char === ',') && !inQuotes) { cells.push(current.trim()); current = ''; }
-      else { current += char; }
+    let cur = '', inQ = false;
+    for (const ch of line) {
+      if (ch === '"') inQ = !inQ;
+      else if ((ch === ';' || ch === ',') && !inQ) { cells.push(cur.trim()); cur = ''; }
+      else cur += ch;
     }
-    cells.push(current.trim());
-    
-    if (cells.length > 0) rows.push(cells);
-  }
-  
+    cells.push(cur.trim());
+    if (cells.length) rows.push(cells);
+  });
   return rows;
 }
 
@@ -401,6 +345,8 @@ async function saveToGithub() {
   const s = getGhSettings();
   if (!s?.token?.trim()) { openModal("githubModal"); return; }
   
+  document.getElementById("githubProgress").classList.add("show");
+  
   try {
     const watches = loadWatchesSync();
     let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
@@ -411,8 +357,12 @@ async function saveToGithub() {
     
     await pushToGh('data.json', JSON.stringify(watches, null, 2));
     await pushToGh('index.html', html);
+    document.getElementById("githubProgress").classList.remove("show");
     alert('✅ Сохранено!\n\nhttps://' + s.username + '.github.io/' + s.repo + '/');
-  } catch (e) { alert('❌ ' + e.message); }
+  } catch (e) {
+    document.getElementById("githubProgress").classList.remove("show");
+    alert('❌ ' + e.message);
+  }
 }
 
 // ========== ФОРМАТИРОВАНИЕ ==========
@@ -439,12 +389,15 @@ function getFilteredWatches() {
   if (currentCategory !== "all") w = w.filter(x => x.category === currentCategory);
   if (priceFilterMin !== null) w = w.filter(x => x.price >= priceFilterMin);
   if (priceFilterMax !== null) w = w.filter(x => x.price <= priceFilterMax);
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    w = w.filter(x => (x.name||'').toLowerCase().includes(q) || (x.desc||'').toLowerCase().includes(q) || (x.article||'').toLowerCase().includes(q));
+  }
   return w;
 }
 
 // ========== ЛАЙТБОКС ==========
 let lbImages=[], lbIdx=0, lbArticle="", lbPrice="";
-
 function openLightbox(images, article, price, startIdx) {
   if (!images?.length) return;
   lbImages=images; lbIdx=startIdx||0; lbArticle=article||""; lbPrice=price||"";
@@ -452,12 +405,7 @@ function openLightbox(images, article, price, startIdx) {
   document.getElementById("lightbox").classList.add("open");
   document.body.style.overflow="hidden";
 }
-
-function closeLightbox() {
-  document.getElementById("lightbox").classList.remove("open");
-  document.body.style.overflow="";
-}
-
+function closeLightbox() { document.getElementById("lightbox").classList.remove("open"); document.body.style.overflow=""; }
 function renderLightbox() {
   document.getElementById("lightboxImg").src=lbImages[lbIdx];
   document.getElementById("lightboxArticle").textContent=lbArticle?"Артикул: "+lbArticle:"";
@@ -475,7 +423,6 @@ function renderLightbox() {
     document.getElementById("lightboxNext").style.display="none";
   }
 }
-
 function lbPrev(){lbIdx=(lbIdx-1+lbImages.length)%lbImages.length;renderLightbox();}
 function lbNext(){lbIdx=(lbIdx+1)%lbImages.length;renderLightbox();}
 
@@ -507,7 +454,6 @@ function openFavModal(){
   list.querySelectorAll(".fav-remove").forEach(b=>b.onclick=()=>toggleFav(b.getAttribute("data-article")));
   openModal("favModal");
 }
-
 function fallbackCopy(text){
   const ta=document.createElement("textarea");
   ta.value=text;ta.style.cssText="position:fixed;left:-9999px";
@@ -528,7 +474,7 @@ async function render(){
   document.body.classList.toggle("authed",isAuthed);
   
   const info=document.getElementById("resultsInfo");
-  if(info)info.innerHTML=(currentCategory!=="all"||priceFilterMin!==null||priceFilterMax!==null)?`Найдено: <b>${watches.length}</b> из <b>${all.length}</b>`:"";
+  if(info)info.innerHTML=(currentCategory!=="all"||priceFilterMin!==null||priceFilterMax!==null||searchQuery)?`Найдено: <b>${watches.length}</b> из <b>${all.length}</b>`:"";
   
   if(!watches.length){grid.innerHTML='<div class="empty">Ничего не найдено.</div>';return;}
   
@@ -545,6 +491,7 @@ async function render(){
       <div class="card-actions"><button class="icon-btn edit" data-edit-article="${escapeHtml(article)}">✎</button><button class="icon-btn del" data-del-article="${escapeHtml(article)}">✕</button></div>
       <div class="slider${multi?' has-multi':''}" data-slider="${i}"><div class="slides">${sc}</div>${arrows}${dots}</div>
       <div class="body">
+        ${w.category?`<span class="category-badge ${w.category}">${w.category==='women'?'Женские':'Мужские'}</span>`:''}
         ${article?`<div class="article">Артикул: ${escapeHtml(article)}</div>`:''}
         ${w.name?`<p class="name">${escapeHtml(w.name)}</p>`:''}
         <p class="desc">${escapeHtml(w.desc)}</p>
@@ -559,14 +506,7 @@ async function render(){
   grid.innerHTML=html;
   initSliders();
   initCardEvents();
-  updateFooter();
   updateFavCount();
-}
-
-function updateFooter(){
-  const f=document.getElementById("mainFooter");
-  if(!f)return;
-  f.innerHTML='© 2026 TEMPUS KZ · Оффлайн-каталог';
 }
 
 // ========== КАРТОЧКИ ==========
@@ -590,9 +530,15 @@ function initSliders(){
     if(!slides||slides.children.length<2)return;
     const total=slides.children.length;
     let idx=0;
-    const go=n=>{idx=(n+total)%total;if(idx<0)idx=total-1;slides.style.transform=`translateX(-${idx*100}%)`;dots.forEach((d,k)=>d.classList.toggle("active",k===idx));};
+    
+    let counter=slider.querySelector('.photo-counter');
+    if(!counter){counter=document.createElement('div');counter.className='photo-counter';slider.appendChild(counter);}
+    
+    const go=n=>{idx=(n+total)%total;if(idx<0)idx=total-1;slides.style.transform=`translateX(-${idx*100}%)`;dots.forEach((d,k)=>d.classList.toggle("active",k===idx));counter.textContent=`${idx+1}/${total}`;};
+    counter.textContent=`1/${total}`;
     arrows.forEach(a=>a.onclick=e=>{e.stopPropagation();go(idx+parseInt(a.getAttribute("data-dir")));});
     dots.forEach((d,j)=>d.onclick=e=>{e.stopPropagation();go(j);});
+    
     let sx=0,dx=0,dragging=false;
     slides.addEventListener("touchstart",e=>{sx=e.touches[0].clientX;dx=0;dragging=true;slides.style.transition="none";},{passive:true});
     slides.addEventListener("touchmove",e=>{if(!dragging)return;dx=e.touches[0].clientX-sx;slides.style.transform=`translateX(${-idx*slides.offsetWidth+dx}px)`;},{passive:true});
@@ -675,7 +621,7 @@ function renderEditThumbs(){
   if(!box)return;
   if(!editExisting.length){box.innerHTML='<div style="color:#8a8a94;font-size:12px">Нет фото</div>';return;}
   box.innerHTML=editExisting.map((s,k)=>`<div class="thumb-item"><img src="${s}"><button class="thumb-remove" data-k="${k}">×</button></div>`).join("");
-  box.querySelectorAll(".thumb-remove").forEach(b=>b.onclick=()=>{editExisting.splice(+b.getAttribute("data-k"),1);renderEditThumbs();});
+  box.querySelectorAll(".thumb-remove").forEach(b=>b.onclick=()=>{if(confirm('Удалить это фото?')){editExisting.splice(+b.getAttribute("data-k"),1);renderEditThumbs();}});
 }
 
 function renderEditNewThumbs(){
@@ -685,6 +631,46 @@ function renderEditNewThumbs(){
   box.querySelectorAll(".thumb-remove").forEach(b=>b.onclick=()=>{editNew.splice(+b.getAttribute("data-k"),1);renderEditNewThumbs();});
 }
 
+// ========== DRAG & DROP ==========
+function setupDragDrop(){
+  document.querySelectorAll('.file-input').forEach(zone=>{
+    zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('dragover');});
+    zone.addEventListener('dragleave',()=>zone.classList.remove('dragover'));
+    zone.addEventListener('drop',async e=>{
+      e.preventDefault();
+      zone.classList.remove('dragover');
+      const files=Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/'));
+      if(!files.length)return;
+      const compressed=await compressFiles(files);
+      const input=zone.querySelector('input[type="file"]');
+      if(input){
+        if(input.id==='fImgFile'){pendingAddImages=pendingAddImages.concat(compressed);renderAddThumbs();}
+        else if(input.id==='eImgFile'){editNew=editNew.concat(compressed);renderEditNewThumbs();}
+      }
+    });
+  });
+}
+
+// ========== КНОПКА НАВЕРХ ==========
+function setupScrollTop(){
+  const btn=document.getElementById("scrollTopBtn");
+  window.addEventListener('scroll',()=>btn.classList.toggle('show',window.scrollY>500));
+  btn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));
+}
+
+// ========== ПОИСК ==========
+function setupSearch(){
+  document.getElementById("searchInput").addEventListener('input',function(){
+    searchQuery=this.value.trim();
+    render();
+  });
+}
+
+// ========== ПРЕЛОАДЕР ==========
+function hidePreloader(){
+  setTimeout(()=>document.getElementById('preloader').classList.add('hidden'),500);
+}
+
 // ========== ИНИЦИАЛИЗАЦИЯ ==========
 async function initApp(){
   isAuthed=false;
@@ -692,6 +678,7 @@ async function initApp(){
   saveFavorites();
   updateAuthUI();
   await render();
+  hidePreloader();
 }
 
 // ========== ОБРАБОТЧИКИ ==========
@@ -810,9 +797,13 @@ function bindEvents(){
     document.getElementById("ghToken").value=gs.token||"";
     document.getElementById("ghBranch").value=gs.branch||"main";
   }
+  
+  setupDragDrop();
+  setupScrollTop();
+  setupSearch();
 }
 
 // ========== ЗАПУСК ==========
-console.log('🚀 TEMPUS KZ v14 — Excel загрузка/выгрузка');
+console.log('🚀 TEMPUS KZ v15 — полный апгрейд');
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{bindEvents();initApp();});
 else{bindEvents();initApp();}
