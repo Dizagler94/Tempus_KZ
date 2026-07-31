@@ -1,76 +1,50 @@
 // ========== ЖЁСТКАЯ ОЧИСТКА КЕША + ПРИНУДИТЕЛЬНАЯ ПЕРЕЗАГРУЗКА ==========
 (function(){
-  const CURRENT_VERSION = '2.0.2';
+  const CURRENT_VERSION = '2.0.3';
   const VERSION_KEY = 'tempus_kz_ver';
   const RELOAD_KEY = 'tempus_kz_reloaded';
   
-  // 1. Проверяем версию
   const savedVersion = localStorage.getItem(VERSION_KEY);
   
   if (savedVersion !== CURRENT_VERSION) {
-    console.log('🔄 Обнаружена новая версия! Полная очистка...');
+    console.log('🔄 Новая версия! Полная очистка...');
     
-    // 2. Сохраняем ТОЛЬКО избранное (всё остальное удаляем)
     let favs = null;
     try { favs = localStorage.getItem('mdt_favorites_v1'); } catch(e) {}
     
-    // 3. Уничтожаем ВСЁ
     localStorage.clear();
     sessionStorage.clear();
     
-    // 4. Очищаем кеш браузера (Service Workers, Cache API)
     if ('caches' in window) {
       caches.keys().then(names => {
         names.forEach(name => caches.delete(name));
-        console.log('📦 Service Workers удалены');
       });
     }
     
-    // 5. Очищаем cookies
     document.cookie.split(";").forEach(c => {
-      document.cookie = c.replace(/^ +/, "")
-        .replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
+      document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
     });
     
-    // 6. Очищаем IndexedDB
     if ('indexedDB' in window) {
       indexedDB.databases().then(dbs => {
         dbs.forEach(db => indexedDB.deleteDatabase(db.name));
-        console.log('🗄️ IndexedDB очищена');
       }).catch(() => {});
     }
     
-    // 7. Восстанавливаем ТОЛЬКО избранное
     if (favs) localStorage.setItem('mdt_favorites_v1', favs);
-    
-    // 8. Сохраняем новую версию
     localStorage.setItem(VERSION_KEY, CURRENT_VERSION);
     
-    // 9. Принудительная жёсткая перезагрузка (только один раз)
     if (!sessionStorage.getItem(RELOAD_KEY)) {
       sessionStorage.setItem(RELOAD_KEY, '1');
-      
-      // Задержка 100 мс для завершения очистки
-      setTimeout(() => {
-        console.log('🔄 Принудительная перезагрузка...');
-        // Жёсткая перезагрузка с очисткой кеша браузера
-        window.location.reload(true);
-      }, 150);
-      
-      // Блокируем выполнение остального кода
-      throw new Error('RELOAD_PLEASE');
+      setTimeout(() => { window.location.reload(true); }, 150);
+      throw new Error('RELOAD');
     }
   }
   
-  // 10. Каждые 6 часов — принудительная очистка
   const lastClean = localStorage.getItem('tempus_kz_last_clean');
   if (lastClean) {
     const hoursSince = (Date.now() - parseInt(lastClean)) / (1000 * 60 * 60);
     if (hoursSince > 6) {
-      console.log('🕐 Плановая очистка (прошло 6 часов)');
-      localStorage.setItem('tempus_kz_last_clean', Date.now().toString());
-      
-      // Мягкая очистка без перезагрузки
       const favs = localStorage.getItem('mdt_favorites_v1');
       const github = localStorage.getItem('mdt_github_v17');
       localStorage.clear();
@@ -83,7 +57,7 @@
     localStorage.setItem('tempus_kz_last_clean', Date.now().toString());
   }
   
-  console.log('✅ Версия ' + CURRENT_VERSION + ' — кеш актуален');
+  console.log('✅ v' + CURRENT_VERSION);
 })();
 
 // ========== КОНСТАНТЫ ==========
@@ -93,7 +67,7 @@ const ITEMS_PER_PAGE = 12;
 let canUseStorage = false;
 try { localStorage.setItem('__t', '1'); localStorage.removeItem('__t'); canUseStorage = true; } catch (e) {}
 
-let isAuthed = false, currentCategory = "all", priceFilterMin = null, priceFilterMax = null, searchQuery = '';
+let isAuthed = false, currentCategory = "all", priceFilterMin = null, priceFilterMax = null, searchQuery = '', sortOrder = 'default';
 let favorites = [], catalogData = [], currentPage = 1, totalPages = 1;
 
 // ========== ЗАГРУЗКА ДАННЫХ ==========
@@ -152,13 +126,20 @@ function compressImage(file, maxWidth = 800, quality = 0.8) {
 }
 async function compressFiles(files) { const r = []; for (const f of files) { try { r.push(await compressImage(f)); } catch (e) {} } return r; }
 
-// ========== ФИЛЬТРАЦИЯ ==========
+// ========== ФИЛЬТРАЦИЯ + СОРТИРОВКА ==========
 function getFilteredWatches() {
   let w = loadWatchesSync();
   if (currentCategory !== "all") w = w.filter(x => x.category === currentCategory);
   if (priceFilterMin !== null) w = w.filter(x => x.price >= priceFilterMin);
   if (priceFilterMax !== null) w = w.filter(x => x.price <= priceFilterMax);
   if (searchQuery) { const q = searchQuery.toLowerCase(); w = w.filter(x => (x.name || '').toLowerCase().includes(q) || (x.desc || '').toLowerCase().includes(q) || (x.article || '').toLowerCase().includes(q)); }
+  
+  if (sortOrder === 'price_asc') {
+    w.sort((a, b) => (a.price || 0) - (b.price || 0));
+  } else if (sortOrder === 'price_desc') {
+    w.sort((a, b) => (b.price || 0) - (a.price || 0));
+  }
+  
   return w;
 }
 
@@ -271,7 +252,7 @@ async function render() {
   const watches = getPageWatches(), allFiltered = getFilteredWatches();
   document.body.classList.toggle("authed", isAuthed);
   const info = document.getElementById("resultsInfo");
-  if (info) info.innerHTML = (currentCategory !== "all" || priceFilterMin !== null || priceFilterMax !== null || searchQuery) ? `Найдено: <b>${allFiltered.length}</b> (стр. ${currentPage}/${totalPages})` : `Всего: <b>${allFiltered.length}</b>`;
+  if (info) info.innerHTML = (currentCategory !== "all" || priceFilterMin !== null || priceFilterMax !== null || searchQuery || sortOrder !== 'default') ? `Найдено: <b>${allFiltered.length}</b> (стр. ${currentPage}/${totalPages})` : `Всего: <b>${allFiltered.length}</b>`;
   if (!watches.length) { grid.innerHTML = '<div class="empty">Ничего не найдено.</div>'; const pagDiv = document.getElementById("pagination"); if (pagDiv) pagDiv.innerHTML = ''; return; }
   let html = '';
   watches.forEach((w, i) => { const s = stockInfo(w.qty), images = w.images || [], multi = images.length > 1; const article = w.article || "", favActive = isFav(article); const sc = images.length ? images.map(src => `<div class="slide"><img src="${src}" alt="" draggable="false"></div>`).join("") : `<div class="placeholder">${placeholderSVG()}</div>`; const dots = multi ? `<div class="slider-dots">${images.map((_, k) => `<button class="slider-dot${k === 0 ? ' active' : ''}" data-k="${k}"></button>`).join("")}</div>` : ""; const arrows = multi ? `<button class="slider-arrow prev" data-dir="-1">‹</button><button class="slider-arrow next" data-dir="1">›</button>` : ""; html += `<article class="card${favActive ? ' fav-active' : ''}" data-article="${escapeHtml(article)}"><button class="fav-btn${favActive ? ' active' : ''}" data-fav="${escapeHtml(article)}">${favActive ? '❤️' : '🤍'}</button><div class="card-actions"><button class="icon-btn edit" data-edit-article="${escapeHtml(article)}">✎</button><button class="icon-btn del" data-del-article="${escapeHtml(article)}">✕</button></div><div class="slider${multi ? ' has-multi' : ''}" data-slider="${i}"><div class="slides">${sc}</div>${arrows}${dots}</div><div class="body">${w.category ? `<span class="category-badge ${w.category}">${w.category === 'women' ? 'Женские' : 'Мужские'}</span>` : ''}${article ? `<div class="article">Артикул: ${escapeHtml(article)}</div>` : ''}${w.name ? `<p class="name">${escapeHtml(w.name)}</p>` : ''}<p class="desc">${escapeHtml(w.desc)}</p><div class="price-wrap"><div class="price">${fmtPrice(w.price)}</div><div class="stock ${s.cls}">${s.text}</div></div></div></article>`; });
@@ -288,14 +269,35 @@ function initCardEvents() { document.querySelectorAll(".card").forEach(card => {
 function initSliders() { document.querySelectorAll("[data-slider]").forEach(slider => { const slides = slider.querySelector(".slides"), dots = slider.querySelectorAll(".slider-dot"), arrows = slider.querySelectorAll(".slider-arrow"); if (!slides || slides.children.length < 2) return; const total = slides.children.length; let idx = 0; let counter = slider.querySelector('.photo-counter'); if (!counter) { counter = document.createElement('div'); counter.className = 'photo-counter'; slider.appendChild(counter); } const go = n => { idx = (n + total) % total; if (idx < 0) idx = total - 1; slides.style.transform = `translateX(-${idx * 100}%)`; dots.forEach((d, k) => d.classList.toggle("active", k === idx)); counter.textContent = `${idx + 1}/${total}`; }; counter.textContent = `1/${total}`; arrows.forEach(a => a.onclick = e => { e.stopPropagation(); go(idx + parseInt(a.getAttribute("data-dir"))); }); dots.forEach((d, j) => d.onclick = e => { e.stopPropagation(); go(j); }); let sx = 0, dx = 0, dragging = false; slides.addEventListener("touchstart", e => { sx = e.touches[0].clientX; dx = 0; dragging = true; slides.style.transition = "none"; }, { passive: true }); slides.addEventListener("touchmove", e => { if (!dragging) return; dx = e.touches[0].clientX - sx; slides.style.transform = `translateX(${-idx * slides.offsetWidth + dx}px)`; }, { passive: true }); slides.addEventListener("touchend", () => { if (!dragging) return; dragging = false; slides.style.transition = "transform 0.3s ease-out"; if (dx < -slides.offsetWidth * 0.2) go(idx + 1); else if (dx > slides.offsetWidth * 0.2) go(idx - 1); else go(idx); }, { passive: true }); }); }
 
 // ========== АВТОРИЗАЦИЯ ==========
-function updateAuthUI() { const area = document.getElementById("authArea"); if (!area) return; if (isAuthed) { area.innerHTML = `<button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn btn-gold" id="addBtn">+ Добавить</button><button class="btn btn-gold" id="githubBtnTop">🚀 СОХРАНИТЬ!!!</button><button class="btn" id="excelBtnTop">📥Сохранить Excel</button><button class="btn" id="uploadExcelBtnTop">📤 Загрузить свой Excel</button><button class="btn" id="logoutBtn">Выйти</button>`; const addBtn = document.getElementById("addBtn"); if (addBtn) addBtn.onclick = openAddModal; const ghBtn = document.getElementById("githubBtnTop"); if (ghBtn) ghBtn.onclick = saveToGithub; const exBtn = document.getElementById("excelBtnTop"); if (exBtn) exBtn.onclick = downloadExcel; const upBtn = document.getElementById("uploadExcelBtnTop"); if (upBtn) upBtn.onclick = uploadExcel; const svBtn = document.getElementById("saveBtnTop"); if (svBtn) svBtn.onclick = saveToFile; const loBtn = document.getElementById("logoutBtn"); if (loBtn) loBtn.onclick = () => { isAuthed = false; updateAuthUI(); render(); }; const fvBtn = document.getElementById("favBtnAuthed"); if (fvBtn) fvBtn.onclick = openFavModal; document.getElementById("saveBanner").style.display = "block"; } else { area.innerHTML = `<button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn" id="loginBtn">Войти</button>`; const liBtn = document.getElementById("loginBtn"); if (liBtn) liBtn.onclick = () => openModal("loginModal"); const fvBtn = document.getElementById("favBtnGuest"); if (fvBtn) fvBtn.onclick = openFavModal; document.getElementById("saveBanner").style.display = "none"; document.body.classList.remove("authed"); } }
+function updateAuthUI() {
+  const area = document.getElementById("authArea"); if (!area) return;
+  const banner = document.getElementById("saveBanner");
+  
+  if (isAuthed) {
+    area.innerHTML = `<button class="btn btn-fav" id="favBtnAuthed">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn btn-gold" id="addBtn">+ Добавить</button><button class="btn btn-gold" id="githubBtnTop">🚀 СОХРАНИТЬ!!!</button><button class="btn" id="excelBtnTop">📥 Сохранить Excel</button><button class="btn" id="uploadExcelBtnTop">📤 Загрузить свой Excel</button><button class="btn" id="logoutBtn">Выйти</button>`;
+    document.getElementById("addBtn").onclick = openAddModal;
+    document.getElementById("githubBtnTop").onclick = saveToGithub;
+    document.getElementById("excelBtnTop").onclick = downloadExcel;
+    document.getElementById("uploadExcelBtnTop").onclick = uploadExcel;
+    document.getElementById("saveBtnTop").onclick = saveToFile;
+    document.getElementById("logoutBtn").onclick = () => { isAuthed = false; updateAuthUI(); render(); };
+    document.getElementById("favBtnAuthed").onclick = openFavModal;
+    if (banner) banner.style.display = "block";
+  } else {
+    area.innerHTML = `<button class="btn btn-fav" id="favBtnGuest">❤️ Избранное<span class="fav-count">${favorites.length}</span></button><button class="btn" id="loginBtn">Войти</button>`;
+    document.getElementById("loginBtn").onclick = () => openModal("loginModal");
+    document.getElementById("favBtnGuest").onclick = openFavModal;
+    if (banner) banner.style.display = "none";
+    document.body.classList.remove("authed");
+  }
+}
 
 // ========== ДОБАВЛЕНИЕ/РЕДАКТИРОВАНИЕ ==========
 let pendingAddImages = [];
-function openAddModal() { pendingAddImages = []; const cat = document.getElementById("fCategory"); if (cat) cat.value = "men"; "fArticle fName fDesc fPrice fQty fImgFile".split(" ").forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; }); const err = document.getElementById("addErr"); if (err) err.textContent = ""; renderAddThumbs(); openModal("addModal"); }
+function openAddModal() { pendingAddImages = []; document.getElementById("fCategory").value = "men"; "fArticle fName fDesc fPrice fQty fImgFile".split(" ").forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; }); document.getElementById("addErr").textContent = ""; renderAddThumbs(); openModal("addModal"); }
 function renderAddThumbs() { const box = document.getElementById("addThumbs"); if (!box) return; box.innerHTML = pendingAddImages.map((s, k) => `<div class="thumb-item"><img src="${s}"><button class="thumb-remove" data-k="${k}">×</button></div>`).join(""); box.querySelectorAll(".thumb-remove").forEach(b => b.onclick = () => { pendingAddImages.splice(+b.getAttribute("data-k"), 1); renderAddThumbs(); }); }
 let editingIndex = -1, editExisting = [], editNew = [];
-function openEdit(i) { const w = loadWatchesSync()[i]; if (!w) return; editingIndex = i; editExisting = (w.images || []).slice(); editNew = []; const ec = document.getElementById("eCategory"); if (ec) ec.value = w.category || "men"; const ea = document.getElementById("eArticle"); if (ea) ea.value = w.article || ""; const en = document.getElementById("eName"); if (en) en.value = w.name || ""; const ed = document.getElementById("eDesc"); if (ed) ed.value = w.desc || ""; const ep = document.getElementById("ePrice"); if (ep) ep.value = w.price; const eq = document.getElementById("eQty"); if (eq) eq.value = w.qty; const ei = document.getElementById("eImgFile"); if (ei) ei.value = ""; const ee = document.getElementById("editErr"); if (ee) ee.textContent = ""; renderEditThumbs(); renderEditNewThumbs(); openModal("editModal"); }
+function openEdit(i) { const w = loadWatchesSync()[i]; if (!w) return; editingIndex = i; editExisting = (w.images || []).slice(); editNew = []; document.getElementById("eCategory").value = w.category || "men"; document.getElementById("eArticle").value = w.article || ""; document.getElementById("eName").value = w.name || ""; document.getElementById("eDesc").value = w.desc || ""; document.getElementById("ePrice").value = w.price; document.getElementById("eQty").value = w.qty; document.getElementById("eImgFile").value = ""; document.getElementById("editErr").textContent = ""; renderEditThumbs(); renderEditNewThumbs(); openModal("editModal"); }
 function renderEditThumbs() { const box = document.getElementById("editThumbs"); if (!box) return; if (!editExisting.length) { box.innerHTML = '<div style="color:#8a8a94;font-size:12px">Нет фото</div>'; return; } box.innerHTML = editExisting.map((s, k) => `<div class="thumb-item"><img src="${s}"><button class="thumb-remove" data-k="${k}">×</button></div>`).join(""); box.querySelectorAll(".thumb-remove").forEach(b => b.onclick = () => { if (confirm('Удалить фото?')) { editExisting.splice(+b.getAttribute("data-k"), 1); renderEditThumbs(); } }); }
 function renderEditNewThumbs() { const box = document.getElementById("editNewThumbs"); if (!box) return; box.innerHTML = editNew.map((s, k) => `<div class="thumb-item"><img src="${s}"><button class="thumb-remove" data-k="${k}">×</button></div>`).join(""); box.querySelectorAll(".thumb-remove").forEach(b => b.onclick = () => { editNew.splice(+b.getAttribute("data-k"), 1); renderEditNewThumbs(); }); }
 
@@ -319,7 +321,8 @@ async function initApp() {
   favorites = loadFavorites();
   saveFavorites();
   updateAuthUI();
-  document.getElementById("saveBanner").style.display = "none";
+  const banner = document.getElementById("saveBanner");
+  if (banner) banner.style.display = "none";
   document.body.classList.remove("authed");
   await render();
   hidePreloader();
@@ -351,14 +354,26 @@ function bindEvents() {
   on("excelFileInput", "onchange", handleExcelUpload);
   on("githubBtn", "onclick", saveToGithub);
   on("saveGithub", "onclick", async function() { const err = $("githubErr"); const u = $("ghUser"), r = $("ghRepo"), t = $("ghToken"), b = $("ghBranch"); if (!u || !r || !t || !b) return; const s = { username: u.value.trim(), repo: r.value.trim(), token: t.value.trim(), branch: b.value.trim() || "main" }; if (!s.username || !s.repo || !s.token) { if (err) err.textContent = "Заполните все поля"; return; } if (!s.token.startsWith('ghp_') && !s.token.startsWith('github_pat_')) { if (err) err.textContent = "Токен должен начинаться с ghp_ или github_pat_"; return; } localStorage.setItem(GH_KEY, JSON.stringify(s)); if (err) err.textContent = ""; closeModal("githubModal"); await saveToGithub(); });
-  const catMenu = $("categoryMenu"); if (catMenu) catMenu.onclick = function(e) { const btn = e.target.closest(".cat-btn"); if (!btn) return; document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active")); btn.classList.add("active"); currentCategory = btn.getAttribute("data-cat"); currentPage = 1; render(); };
+  
+  // Категории
+  const catMenu = $("categoryMenu");
+  if (catMenu) catMenu.onclick = function(e) { const btn = e.target.closest(".cat-btn"); if (!btn) return; document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active")); btn.classList.add("active"); currentCategory = btn.getAttribute("data-cat"); currentPage = 1; render(); };
+  
+  // Фильтры
   on("applyFilter", "onclick", () => { const min = $("priceMin")?.value || '', max = $("priceMax")?.value || ''; priceFilterMin = min === "" ? null : +min; priceFilterMax = max === "" ? null : +max; currentPage = 1; render(); });
-  on("resetFilter", "onclick", () => { const mn = $("priceMin"), mx = $("priceMax"); if (mn) mn.value = ""; if (mx) mx.value = ""; priceFilterMin = null; priceFilterMax = null; currentPage = 1; render(); });
-  const gs = getGhSettings(); if (gs) { const u = $("ghUser"); if (u) u.value = gs.username || ""; const r = $("ghRepo"); if (r) r.value = gs.repo || ""; const t = $("ghToken"); if (t) t.value = gs.token || ""; const b = $("ghBranch"); if (b) b.value = gs.branch || "main"; }
+  on("resetFilter", "onclick", () => { const mn = $("priceMin"), mx = $("priceMax"); if (mn) mn.value = ""; if (mx) mx.value = ""; priceFilterMin = null; priceFilterMax = null; sortOrder = 'default'; document.querySelectorAll(".sort-btn").forEach(b => b.classList.remove("active")); const def = document.querySelector(".sort-btn[data-sort='default']"); if (def) def.classList.add("active"); currentPage = 1; render(); });
+  
+  // Сортировка
+  const filterBar = document.querySelector(".filter-bar");
+  if (filterBar) filterBar.addEventListener("click", function(e) { const btn = e.target.closest(".sort-btn"); if (!btn) return; document.querySelectorAll(".sort-btn").forEach(b => b.classList.remove("active")); btn.classList.add("active"); sortOrder = btn.getAttribute("data-sort"); currentPage = 1; render(); });
+  
+  const gs = getGhSettings();
+  if (gs) { const u = $("ghUser"); if (u) u.value = gs.username || ""; const r = $("ghRepo"); if (r) r.value = gs.repo || ""; const t = $("ghToken"); if (t) t.value = gs.token || ""; const b = $("ghBranch"); if (b) b.value = gs.branch || "main"; }
+  
   setupDragDrop(); setupScrollTop(); setupSearch();
 }
 
 // ========== ЗАПУСК ==========
-console.log('🚀 TEMPUS KZ v20 — жёсткая очистка кеша');
+console.log('🚀 TEMPUS KZ v20 — пагинация + сортировка');
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { bindEvents(); initApp(); });
 else { bindEvents(); initApp(); }
