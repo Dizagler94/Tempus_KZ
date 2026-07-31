@@ -1,6 +1,6 @@
 // ========== ЖЁСТКАЯ ОЧИСТКА КЕША + ПРИНУДИТЕЛЬНАЯ ПЕРЕЗАГРУЗКА ==========
 (function(){
-  const CURRENT_VERSION = '2.0.3';
+  const CURRENT_VERSION = '2.0.4';
   const VERSION_KEY = 'tempus_kz_ver';
   const RELOAD_KEY = 'tempus_kz_reloaded';
   
@@ -91,7 +91,17 @@ function loadFromEmbedded() {
   try { const el = document.getElementById("catalog-data"); return el ? migrateData(JSON.parse(el.textContent.trim() || "[]")) : []; } catch (e) { return []; }
 }
 function loadWatchesSync() { return catalogData; }
-function migrateData(list) { return list.map(w => { if (!w.images) { w.images = w.img ? [w.img] : []; delete w.img; } if (!w.category) w.category = "men"; if (!w.name) w.name = w.desc || ''; return w; }); }
+
+function migrateData(list) {
+  return list.map(w => {
+    if (!w.images) { w.images = w.img ? [w.img] : []; delete w.img; }
+    if (!w.category) w.category = "men";
+    if (!w.name) w.name = w.desc || '';
+    // Добавляем дату создания, если её нет
+    if (!w.createdAt) w.createdAt = new Date().toISOString();
+    return w;
+  });
+}
 
 // ========== ИЗБРАННОЕ ==========
 function loadFavorites() { if (!canUseStorage) return []; try { return JSON.parse(localStorage.getItem(FAV_KEY) || "[]").filter(a => a?.trim()); } catch (e) { return []; } }
@@ -134,7 +144,11 @@ function getFilteredWatches() {
   if (priceFilterMax !== null) w = w.filter(x => x.price <= priceFilterMax);
   if (searchQuery) { const q = searchQuery.toLowerCase(); w = w.filter(x => (x.name || '').toLowerCase().includes(q) || (x.desc || '').toLowerCase().includes(q) || (x.article || '').toLowerCase().includes(q)); }
   
-  if (sortOrder === 'price_asc') {
+  // СОРТИРОВКА
+  if (sortOrder === 'default') {
+    // По умолчанию: сначала новые (createdAt по убыванию)
+    w.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  } else if (sortOrder === 'price_asc') {
     w.sort((a, b) => (a.price || 0) - (b.price || 0));
   } else if (sortOrder === 'price_desc') {
     w.sort((a, b) => (b.price || 0) - (a.price || 0));
@@ -191,7 +205,7 @@ function handleExcelUpload(event) {
       const data = e.target.result; let rows = []; if (data.includes('<?xml') || data.includes('<Workbook')) rows = parseXmlExcel(data); else rows = parseCSV(data);
       if (rows.length < 2) { alert('❌ Файл пуст'); return; }
       const newWatches = [], existingWatches = loadWatchesSync(); let updated = 0, added = 0;
-      for (let i = 1; i < rows.length; i++) { const row = rows[i]; if (!row[0] && !row[1]) continue; const article = String(row[0] || '').trim(), name = String(row[1] || '').trim(), desc = String(row[2] || '').trim(); const category = String(row[3] || '').toLowerCase().includes('жен') ? 'women' : 'men'; const price = parseInt(String(row[4] || '0').replace(/[^\d]/g, '')) || 0, qty = parseInt(String(row[5] || '0').replace(/[^\d]/g, '')) || 0; const existingIdx = existingWatches.findIndex(w => w.article === article && article !== ''); if (existingIdx >= 0) { existingWatches[existingIdx] = { ...existingWatches[existingIdx], name: name || existingWatches[existingIdx].name, desc: desc || existingWatches[existingIdx].desc, category, price, qty }; updated++; } else { newWatches.push({ article: article || ('TK-' + new Date().getFullYear() + '-' + String(Math.random()).substring(2, 6)), name: name || 'Новая модель', desc: desc || '', category, price, qty, images: [] }); added++; } }
+      for (let i = 1; i < rows.length; i++) { const row = rows[i]; if (!row[0] && !row[1]) continue; const article = String(row[0] || '').trim(), name = String(row[1] || '').trim(), desc = String(row[2] || '').trim(); const category = String(row[3] || '').toLowerCase().includes('жен') ? 'women' : 'men'; const price = parseInt(String(row[4] || '0').replace(/[^\d]/g, '')) || 0, qty = parseInt(String(row[5] || '0').replace(/[^\d]/g, '')) || 0; const existingIdx = existingWatches.findIndex(w => w.article === article && article !== ''); if (existingIdx >= 0) { existingWatches[existingIdx] = { ...existingWatches[existingIdx], name: name || existingWatches[existingIdx].name, desc: desc || existingWatches[existingIdx].desc, category, price, qty }; updated++; } else { newWatches.push({ article: article || ('TK-' + new Date().getFullYear() + '-' + String(Math.random()).substring(2, 6)), name: name || 'Новая модель', desc: desc || '', category, price, qty, images: [], createdAt: new Date().toISOString() }); added++; } }
       saveWatches([...existingWatches, ...newWatches]); currentPage = 1; render();
       alert(`✅ Готово!\n\n📝 Обновлено: ${updated}\n➕ Добавлено: ${added}\n📦 Всего: ${existingWatches.length + newWatches.length}`);
     } catch (err) { console.error(err); alert('❌ Ошибка чтения файла.'); }
@@ -345,7 +359,7 @@ function bindEvents() {
   on("closeGithub", "onclick", () => closeModal("githubModal"));
   on("doLogin", "onclick", function() { const err = $("loginErr"); if (err) err.textContent = ""; const u = $("loginUser"), p = $("loginPass"); if (!u || !p) return; if (u.value.trim() === AUTH.user && p.value === AUTH.pass) { isAuthed = true; closeModal("loginModal"); u.value = ""; p.value = ""; updateAuthUI(); render(); } else if (err) err.textContent = "Неверный логин или пароль"; });
   on("fImgFile", "onchange", async function() { const files = Array.from(this.files || []); if (!files.length) return; pendingAddImages = pendingAddImages.concat(await compressFiles(files)); renderAddThumbs(); this.value = ""; });
-  on("doAdd", "onclick", function() { const err = $("addErr"); if (err) err.textContent = ""; const name = $("fName")?.value?.trim() || '', desc = $("fDesc")?.value?.trim() || '', price = $("fPrice")?.value || ''; if (!name && !desc) { if (err) err.textContent = "Укажите название или описание"; return; } if (price === "" || +price < 0) { if (err) err.textContent = "Укажите цену"; return; } loadWatchesSync().push({ category: $("fCategory")?.value || 'men', article: $("fArticle")?.value?.trim() || '', name, desc, price: +price, qty: $("fQty")?.value === "" ? 0 : +$("fQty").value, images: pendingAddImages.slice() }); saveWatches(loadWatchesSync()); closeModal("addModal"); currentPage = Math.ceil(getFilteredWatches().length / ITEMS_PER_PAGE); render(); });
+  on("doAdd", "onclick", function() { const err = $("addErr"); if (err) err.textContent = ""; const name = $("fName")?.value?.trim() || '', desc = $("fDesc")?.value?.trim() || '', price = $("fPrice")?.value || ''; if (!name && !desc) { if (err) err.textContent = "Укажите название или описание"; return; } if (price === "" || +price < 0) { if (err) err.textContent = "Укажите цену"; return; } loadWatchesSync().push({ category: $("fCategory")?.value || 'men', article: $("fArticle")?.value?.trim() || '', name, desc, price: +price, qty: $("fQty")?.value === "" ? 0 : +$("fQty").value, images: pendingAddImages.slice(), createdAt: new Date().toISOString() }); saveWatches(loadWatchesSync()); closeModal("addModal"); currentPage = Math.ceil(getFilteredWatches().length / ITEMS_PER_PAGE); render(); });
   on("eImgFile", "onchange", async function() { const files = Array.from(this.files || []); if (!files.length) return; editNew = editNew.concat(await compressFiles(files)); renderEditNewThumbs(); this.value = ""; });
   on("doEdit", "onclick", function() { const err = $("editErr"); if (err) err.textContent = ""; const name = $("eName")?.value?.trim() || '', desc = $("eDesc")?.value?.trim() || '', price = $("ePrice")?.value || ''; if (!name && !desc) { if (err) err.textContent = "Укажите название или описание"; return; } if (price === "" || +price < 0) { if (err) err.textContent = "Укажите цену"; return; } const list = loadWatchesSync(); if (!list[editingIndex]) { if (err) err.textContent = "Карточка не найдена"; return; } list[editingIndex] = { ...list[editingIndex], category: $("eCategory")?.value || 'men', article: $("eArticle")?.value?.trim() || '', name, desc, price: +price, qty: $("eQty")?.value === "" ? 0 : +$("eQty").value, images: editExisting.concat(editNew) }; saveWatches(list); closeModal("editModal"); render(); });
   on("saveBtn", "onclick", saveToFile);
@@ -355,15 +369,12 @@ function bindEvents() {
   on("githubBtn", "onclick", saveToGithub);
   on("saveGithub", "onclick", async function() { const err = $("githubErr"); const u = $("ghUser"), r = $("ghRepo"), t = $("ghToken"), b = $("ghBranch"); if (!u || !r || !t || !b) return; const s = { username: u.value.trim(), repo: r.value.trim(), token: t.value.trim(), branch: b.value.trim() || "main" }; if (!s.username || !s.repo || !s.token) { if (err) err.textContent = "Заполните все поля"; return; } if (!s.token.startsWith('ghp_') && !s.token.startsWith('github_pat_')) { if (err) err.textContent = "Токен должен начинаться с ghp_ или github_pat_"; return; } localStorage.setItem(GH_KEY, JSON.stringify(s)); if (err) err.textContent = ""; closeModal("githubModal"); await saveToGithub(); });
   
-  // Категории
   const catMenu = $("categoryMenu");
   if (catMenu) catMenu.onclick = function(e) { const btn = e.target.closest(".cat-btn"); if (!btn) return; document.querySelectorAll(".cat-btn").forEach(b => b.classList.remove("active")); btn.classList.add("active"); currentCategory = btn.getAttribute("data-cat"); currentPage = 1; render(); };
   
-  // Фильтры
   on("applyFilter", "onclick", () => { const min = $("priceMin")?.value || '', max = $("priceMax")?.value || ''; priceFilterMin = min === "" ? null : +min; priceFilterMax = max === "" ? null : +max; currentPage = 1; render(); });
   on("resetFilter", "onclick", () => { const mn = $("priceMin"), mx = $("priceMax"); if (mn) mn.value = ""; if (mx) mx.value = ""; priceFilterMin = null; priceFilterMax = null; sortOrder = 'default'; document.querySelectorAll(".sort-btn").forEach(b => b.classList.remove("active")); const def = document.querySelector(".sort-btn[data-sort='default']"); if (def) def.classList.add("active"); currentPage = 1; render(); });
   
-  // Сортировка
   const filterBar = document.querySelector(".filter-bar");
   if (filterBar) filterBar.addEventListener("click", function(e) { const btn = e.target.closest(".sort-btn"); if (!btn) return; document.querySelectorAll(".sort-btn").forEach(b => b.classList.remove("active")); btn.classList.add("active"); sortOrder = btn.getAttribute("data-sort"); currentPage = 1; render(); });
   
@@ -374,6 +385,6 @@ function bindEvents() {
 }
 
 // ========== ЗАПУСК ==========
-console.log('🚀 TEMPUS KZ v20 — пагинация + сортировка');
+console.log('🚀 TEMPUS KZ v20.4 — сортировка по новизне');
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => { bindEvents(); initApp(); });
 else { bindEvents(); initApp(); }
