@@ -514,6 +514,26 @@ async function initApp() {
   document.body.classList.remove("authed");
   await render();
   hidePreloader();
+  checkCookieConsent();
+}
+
+// ========== КУКИ-УВЕДОМЛЕНИЕ ==========
+function acceptCookies() {
+  const consent = document.getElementById("cookieConsent");
+  if (consent) {
+    consent.style.opacity = '0';
+    consent.style.transition = 'opacity 0.3s ease';
+    setTimeout(() => { consent.style.display = 'none'; }, 300);
+  }
+  localStorage.setItem('cookie_consent', 'accepted');
+}
+
+// Проверяем при загрузке
+function checkCookieConsent() {
+  if (localStorage.getItem('cookie_consent') === 'accepted') {
+    const consent = document.getElementById("cookieConsent");
+    if (consent) consent.style.display = 'none';
+  }
 }
 
 // ========== ОБРАБОТЧИКИ ==========
