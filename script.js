@@ -243,8 +243,119 @@ function parseCSV(csv) { const rows = []; csv.split(/\r?\n/).forEach(line => { i
 // ========== GITHUB ==========
 function getGhSettings() { try { const s = localStorage.getItem(GH_KEY); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
 async function pushToGh(path, content) { const s = getGhSettings(); if (!s?.token?.trim()) throw new Error('Настройте GitHub'); const token = s.token.trim(), apiUrl = `https://api.github.com/repos/${s.username}/${s.repo}/contents/${path}`; const encoded = btoa(unescape(encodeURIComponent(content))); let sha = null; try { const r = await fetch(apiUrl + '?ref=' + (s.branch || 'main'), { headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'X-GitHub-Api-Version': '2022-11-28' } }); if (r.ok) sha = (await r.json()).sha; else if (r.status === 401) throw new Error('Неверный токен'); } catch (e) { if (e.message === 'Неверный токен') throw e; } const body = { message: `Update ${path}`, content: encoded, branch: s.branch || 'main' }; if (sha) body.sha = sha; const r = await fetch(apiUrl, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github.v3+json', 'Content-Type': 'application/json', 'X-GitHub-Api-Version': '2022-11-28' }, body: JSON.stringify(body) }); if (!r.ok) { const err = await r.json().catch(() => ({})); if (r.status === 401) throw new Error('Неверный токен'); throw new Error(err.message || 'HTTP ' + r.status); } }
-async function saveToGithub() { const s = getGhSettings(); if (!s?.token?.trim()) { openModal("githubModal"); return; } try { const watches = loadWatchesSync(); const dataJsonContent = JSON.stringify(watches, null, 2); let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML; html = html.replace(/<script id="catalog-data" type="application\/json">[\s\S]*?<\/script>/, `<script id="catalog-data" type="application\/json">${JSON.stringify(watches).replace(/<\//g, "<\\/")}<\/script>`); await pushToGh('data.json', dataJsonContent); await pushToGh('index.html', html); alert('✅ Сохранено!\n\nhttps://' + s.username + '.github.io/' + s.repo + '/'); } catch (e) { alert('❌ ' + e.message); } }
+async function saveToGithub() {
+  const s = getGhSettings();
+  if (!s?.token?.trim()) {
+    openModal("githubModal");
+    return;
+  }
+  
+  const progress = document.getElementById("githubProgress");
+  if (progress) progress.classList.add("show");
+  
+  try {
+    const watches = loadWatchesSync();
+    const watchesWithImages = watches.map(w => ({ ...w, images: w.images || [] }));
+    catalogData = watchesWithImages;
+    if (canUseStorage) localStorage.setItem(LS_KEY, JSON.stringify(catalogData));
+    
+    const dataJsonContent = JSON.stringify(watchesWithImages, null, 2);
+    let html = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+    html = html.replace(
+      /<script id="catalog-data" type="application\/json">[\s\S]*?<\/script>/,
+      `<script id="catalog-data" type="application\/json">${JSON.stringify(watchesWithImages).replace(/<\//g, "<\\/")}<\/script>`
+    );
+    
+    // Пробуем отправить с ДВУМЯ попытками
+    await pushToGhWithRetry(s, 'data.json', dataJsonContent);
+    await pushToGhWithRetry(s, 'index.html', html);
+    
+    if (progress) progress.classList.remove("show");
+    alert('✅ Сохранено на GitHub!\n\nhttps://' + s.username + '.github.io/' + s.repo + '/');
+  } catch (e) {
+    if (progress) progress.classList.remove("show");
+    console.error('❌ Ошибка GitHub:', e);
+    alert('❌ ' + e.message);
+  }
+}
 
+// Новая функция с повторной попыткой при несовпадении SHA
+async function pushToGhWithRetry(settings, path, content, retryCount = 0) {
+  const token = settings.token.trim();
+  const apiUrl = `https://api.github.com/repos/${settings.username}/${settings.repo}/contents/${path}`;
+  const encoded = btoa(unescape(encodeURIComponent(content)));
+  
+  console.log(`📤 Отправка ${path} (попытка ${retryCount + 1})...`);
+  
+  // Всегда запрашиваем свежий SHA с сервера
+  const response = await fetch(apiUrl + '?ref=' + (settings.branch || 'main') + '&_=' + Date.now(), {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Cache-Control': 'no-cache, no-store',
+      'Pragma': 'no-cache'
+    }
+  });
+  
+  let sha = null;
+  
+  if (response.ok) {
+    const data = await response.json();
+    sha = data.sha;
+    console.log(`✅ Актуальный SHA для ${path}: ${sha.substring(0, 7)}`);
+  } else if (response.status === 404) {
+    console.log(`📄 Файл ${path} будет создан`);
+  } else if (response.status === 401) {
+    throw new Error('Неверный токен. Проверьте права доступа (нужно repo).');
+  } else {
+    const errData = await response.json().catch(() => ({}));
+    console.warn(`⚠️ Статус ${response.status}:`, errData.message || '');
+  }
+  
+  // Отправляем файл
+  const body = {
+    message: `Update ${path} [${new Date().toLocaleString('ru-RU')}]`,
+    content: encoded,
+    branch: settings.branch || 'main'
+  };
+  
+  if (sha) {
+    body.sha = sha;
+  }
+  
+  const putResponse = await fetch(apiUrl, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      'X-GitHub-Api-Version': '2022-11-28'
+    },
+    body: JSON.stringify(body)
+  });
+  
+  if (!putResponse.ok) {
+    const errData = await putResponse.json().catch(() => ({}));
+    
+    // Если SHA не совпадает и это первая попытка — пробуем ещё раз
+    if (putResponse.status === 422 && errData.message?.includes('does not match') && retryCount < 2) {
+      console.warn(`🔄 SHA не совпал для ${path}, повторная попытка...`);
+      // Небольшая задержка перед повтором
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return pushToGhWithRetry(settings, path, content, retryCount + 1);
+    }
+    
+    if (putResponse.status === 401) throw new Error('Неверный токен');
+    if (putResponse.status === 422) throw new Error('Ошибка: ' + (errData.message || 'проверьте данные'));
+    throw new Error(errData.message || `HTTP ${putResponse.status}`);
+  }
+  
+  const result = await putResponse.json();
+  console.log(`✅ ${path} отправлен! Новый SHA: ${result.content.sha.substring(0, 7)}`);
+  return result;
+}
 // ========== ФОРМАТИРОВАНИЕ ==========
 function fmtPrice(n) { return Number(n).toLocaleString("ru-RU") + " ₸"; }
 function stockInfo(qty) { const q = Number(qty); if (!q) return { cls: "out", text: "Нет в наличии" }; if (q <= 3) return { cls: "low", text: `В наличии: ${q} шт.` }; return { cls: "in", text: `В наличии: ${q} шт.` }; }
