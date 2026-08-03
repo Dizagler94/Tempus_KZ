@@ -1,5 +1,15 @@
 [
   {
+    "category": "men",
+    "article": "1",
+    "name": "1",
+    "desc": "1",
+    "price": 1,
+    "qty": 0,
+    "images": [],
+    "createdAt": "2026-08-03T12:42:52.529Z"
+  },
+  {
     "category": "women",
     "article": "Jj-3838",
     "name": "Polo",
