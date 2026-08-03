@@ -280,81 +280,84 @@ async function saveToGithub() {
 }
 
 // Новая функция с повторной попыткой при несовпадении SHA
+// ========== GITHUB С ЗАЩИТОЙ ОТ FAILED TO FETCH ==========
 async function pushToGhWithRetry(settings, path, content, retryCount = 0) {
+  if (retryCount > 3) {
+    throw new Error('Превышено количество попыток. Проверьте интернет-соединение.');
+  }
+  
   const token = settings.token.trim();
   const apiUrl = `https://api.github.com/repos/${settings.username}/${settings.repo}/contents/${path}`;
   const encoded = btoa(unescape(encodeURIComponent(content)));
   
-  console.log(`📤 Отправка ${path} (попытка ${retryCount + 1})...`);
+  console.log(`📤 Отправка ${path} (попытка ${retryCount + 1}/3)...`);
   
-  // Всегда запрашиваем свежий SHA с сервера
-  const response = await fetch(apiUrl + '?ref=' + (settings.branch || 'main') + '&_=' + Date.now(), {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/vnd.github.v3+json',
-      'X-GitHub-Api-Version': '2022-11-28',
-      'Cache-Control': 'no-cache, no-store',
-      'Pragma': 'no-cache'
-    }
-  });
-  
-  let sha = null;
-  
-  if (response.ok) {
-    const data = await response.json();
-    sha = data.sha;
-    console.log(`✅ Актуальный SHA для ${path}: ${sha.substring(0, 7)}`);
-  } else if (response.status === 404) {
-    console.log(`📄 Файл ${path} будет создан`);
-  } else if (response.status === 401) {
-    throw new Error('Неверный токен. Проверьте права доступа (нужно repo).');
-  } else {
-    const errData = await response.json().catch(() => ({}));
-    console.warn(`⚠️ Статус ${response.status}:`, errData.message || '');
-  }
-  
-  // Отправляем файл
-  const body = {
-    message: `Update ${path} [${new Date().toLocaleString('ru-RU')}]`,
-    content: encoded,
-    branch: settings.branch || 'main'
-  };
-  
-  if (sha) {
-    body.sha = sha;
-  }
-  
-  const putResponse = await fetch(apiUrl, {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/vnd.github.v3+json',
-      'Content-Type': 'application/json',
-      'X-GitHub-Api-Version': '2022-11-28'
-    },
-    body: JSON.stringify(body)
-  });
-  
-  if (!putResponse.ok) {
-    const errData = await putResponse.json().catch(() => ({}));
+  try {
+    // Всегда запрашиваем свежий SHA
+    const response = await fetch(apiUrl + '?ref=' + (settings.branch || 'main') + '&_=' + Date.now(), {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Cache-Control': 'no-cache, no-store'
+      }
+    });
     
-    // Если SHA не совпадает и это первая попытка — пробуем ещё раз
-    if (putResponse.status === 422 && errData.message?.includes('does not match') && retryCount < 2) {
-      console.warn(`🔄 SHA не совпал для ${path}, повторная попытка...`);
-      // Небольшая задержка перед повтором
-      await new Promise(resolve => setTimeout(resolve, 500));
+    let sha = null;
+    
+    if (response.ok) {
+      sha = (await response.json()).sha;
+    } else if (response.status === 404) {
+      console.log(`📄 Файл ${path} будет создан`);
+    } else if (response.status === 401) {
+      throw new Error('Неверный токен. Проверьте права доступа.');
+    }
+    
+    // Отправляем файл
+    const body = {
+      message: `Update ${path} [${new Date().toLocaleString('ru-RU')}]`,
+      content: encoded,
+      branch: settings.branch || 'main'
+    };
+    if (sha) body.sha = sha;
+    
+    const putResponse = await fetch(apiUrl, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      },
+      body: JSON.stringify(body)
+    });
+    
+    if (!putResponse.ok) {
+      const errData = await putResponse.json().catch(() => ({}));
+      
+      // Если SHA не совпадает — пробуем ещё раз
+      if (putResponse.status === 422 && errData.message?.includes('does not match')) {
+        console.warn(`🔄 SHA не совпал, повтор...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return pushToGhWithRetry(settings, path, content, retryCount + 1);
+      }
+      
+      if (putResponse.status === 401) throw new Error('Неверный токен');
+      throw new Error(errData.message || `HTTP ${putResponse.status}`);
+    }
+    
+    console.log(`✅ ${path} отправлен`);
+    
+  } catch (error) {
+    // Если Failed to Fetch — ждём и пробуем снова
+    if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+      console.warn(`⚠️ Сетевая ошибка, повтор через ${(retryCount + 1) * 2} сек...`);
+      await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
       return pushToGhWithRetry(settings, path, content, retryCount + 1);
     }
-    
-    if (putResponse.status === 401) throw new Error('Неверный токен');
-    if (putResponse.status === 422) throw new Error('Ошибка: ' + (errData.message || 'проверьте данные'));
-    throw new Error(errData.message || `HTTP ${putResponse.status}`);
+    throw error;
   }
-  
-  const result = await putResponse.json();
-  console.log(`✅ ${path} отправлен! Новый SHA: ${result.content.sha.substring(0, 7)}`);
-  return result;
 }
 // ========== ФОРМАТИРОВАНИЕ ==========
 function fmtPrice(n) { return Number(n).toLocaleString("ru-RU") + " ₸"; }
