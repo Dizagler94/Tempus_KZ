@@ -280,10 +280,10 @@ async function saveToGithub() {
 }
 
 // Новая функция с повторной попыткой при несовпадении SHA
-// ========== GITHUB С ЗАЩИТОЙ ОТ FAILED TO FETCH ==========
+// ========== GITHUB С ЗАЩИТОЙ ОТ CORS ==========
 async function pushToGhWithRetry(settings, path, content, retryCount = 0) {
   if (retryCount > 3) {
-    throw new Error('Превышено количество попыток. Проверьте интернет-соединение.');
+    throw new Error('Превышено количество попыток. Проверьте соединение.');
   }
   
   const token = settings.token.trim();
@@ -293,14 +293,14 @@ async function pushToGhWithRetry(settings, path, content, retryCount = 0) {
   console.log(`📤 Отправка ${path} (попытка ${retryCount + 1}/3)...`);
   
   try {
-    // Всегда запрашиваем свежий SHA
+    // GET-запрос для получения SHA (БЕЗ Cache-Control!)
     const response = await fetch(apiUrl + '?ref=' + (settings.branch || 'main') + '&_=' + Date.now(), {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/vnd.github.v3+json',
-        'X-GitHub-Api-Version': '2022-11-28',
-        'Cache-Control': 'no-cache, no-store'
+        'X-GitHub-Api-Version': '2022-11-28'
+        // ❌ Cache-Control удалён — он вызывает CORS-ошибку
       }
     });
     
@@ -308,13 +308,14 @@ async function pushToGhWithRetry(settings, path, content, retryCount = 0) {
     
     if (response.ok) {
       sha = (await response.json()).sha;
+      console.log(`✅ SHA: ${sha.substring(0, 7)}`);
     } else if (response.status === 404) {
       console.log(`📄 Файл ${path} будет создан`);
     } else if (response.status === 401) {
       throw new Error('Неверный токен. Проверьте права доступа.');
     }
     
-    // Отправляем файл
+    // PUT-запрос для отправки файла
     const body = {
       message: `Update ${path} [${new Date().toLocaleString('ru-RU')}]`,
       content: encoded,
@@ -336,7 +337,6 @@ async function pushToGhWithRetry(settings, path, content, retryCount = 0) {
     if (!putResponse.ok) {
       const errData = await putResponse.json().catch(() => ({}));
       
-      // Если SHA не совпадает — пробуем ещё раз
       if (putResponse.status === 422 && errData.message?.includes('does not match')) {
         console.warn(`🔄 SHA не совпал, повтор...`);
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -350,7 +350,6 @@ async function pushToGhWithRetry(settings, path, content, retryCount = 0) {
     console.log(`✅ ${path} отправлен`);
     
   } catch (error) {
-    // Если Failed to Fetch — ждём и пробуем снова
     if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
       console.warn(`⚠️ Сетевая ошибка, повтор через ${(retryCount + 1) * 2} сек...`);
       await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 2000));
