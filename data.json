@@ -1,13 +1,13 @@
 [
   {
-    "category": "men",
-    "article": "1",
-    "name": "1",
-    "desc": "1",
-    "price": 1,
-    "qty": 0,
+    "category": "women",
+    "article": "JG.POLO классик",
+    "name": "POLO CLUB",
+    "desc": "",
+    "price": 80900,
+    "qty": 1,
     "images": [],
-    "createdAt": "2026-08-03T12:42:52.529Z"
+    "createdAt": "2026-08-05T16:20:13.878Z"
   },
   {
     "category": "women",
