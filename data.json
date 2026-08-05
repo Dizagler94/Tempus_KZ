@@ -1,6 +1,16 @@
 [
   {
     "category": "women",
+    "article": "PD 1730",
+    "name": "PAGANI DESIGN",
+    "desc": "",
+    "price": 115000,
+    "qty": 0,
+    "images": [],
+    "createdAt": "2026-08-05T16:33:01.067Z"
+  },
+  {
+    "category": "women",
     "article": "JG.POLO классик",
     "name": "POLO CLUB",
     "desc": "",
