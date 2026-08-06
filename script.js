@@ -155,13 +155,68 @@ async function render() {
 }
 
 // ========== КАРТОЧКИ + КНОПКА "ПОДРОБНЕЕ" ==========
+// ========== КНОПКА "ПОДРОБНЕЕ" (ИСПРАВЛЕНО) ==========
 function setupDescToggle() {
   document.querySelectorAll(".desc").forEach(desc => {
+    // Удаляем старые обработчики
+    const oldToggle = desc.parentNode.querySelector('.desc-toggle');
+    if (oldToggle) oldToggle.remove();
+    desc.classList.remove('expanded');
+    
+    // Находим карточку
+    const card = desc.closest('.card');
+    if (card) card.classList.remove('has-expanded');
+    
+    // Проверяем, превышает ли текст 3 строки
     const isOverflowing = desc.scrollHeight > desc.clientHeight + 2;
+    
     if (isOverflowing) {
-      const toggle = document.createElement('span'); toggle.className = 'desc-toggle'; toggle.textContent = '▼ Подробнее';
+      const toggle = document.createElement('span');
+      toggle.className = 'desc-toggle';
+      toggle.textContent = '▼ Подробнее';
+      
+      // Вставляем кнопку после описания
       desc.parentNode.insertBefore(toggle, desc.nextSibling);
-      toggle.onclick = function(e) { e.stopPropagation(); desc.classList.toggle('expanded'); toggle.textContent = desc.classList.contains('expanded') ? '▲ Свернуть' : '▼ Подробнее'; };
+      
+      // Обработчик клика
+      toggle.onclick = function(e) {
+        e.stopPropagation();
+        e.preventDefault();
+        
+        const isExpanded = desc.classList.contains('expanded');
+        
+        if (isExpanded) {
+          // СВОРАЧИВАЕМ
+          desc.classList.remove('expanded');
+          toggle.textContent = '▼ Подробнее';
+          if (card) {
+            card.classList.remove('has-expanded');
+            // Прокручиваем описание к началу
+            desc.scrollTop = 0;
+          }
+        } else {
+          // РАЗВОРАЧИВАЕМ
+          // Сначала закрываем все остальные
+          document.querySelectorAll('.desc.expanded').forEach(d => {
+            if (d !== desc) {
+              d.classList.remove('expanded');
+              const t = d.parentNode.querySelector('.desc-toggle');
+              if (t) t.textContent = '▼ Подробнее';
+              const c = d.closest('.card');
+              if (c) c.classList.remove('has-expanded');
+              d.scrollTop = 0;
+            }
+          });
+          
+          desc.classList.add('expanded');
+          toggle.textContent = '▲ Свернуть';
+          if (card) {
+            card.classList.add('has-expanded');
+            // Прокручиваем описание к началу
+            desc.scrollTop = 0;
+          }
+        }
+      };
     }
   });
 }
