@@ -403,6 +403,7 @@ header {
   flex-shrink: 0;
 }
 
+
 /* ========== КНОПКИ НА КАРТОЧКЕ ========== */
 .card-actions { position: absolute; top: 8px; right: 8px; display: none; gap: 5px; z-index: 10; }
 .authed .card-actions { display: flex; }
