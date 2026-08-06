@@ -154,7 +154,6 @@ async function render() {
   initSliders(); initCardEvents(); updateFavCount();
 }
 
-// ========== КАРТОЧКИ + КНОПКА "ПОДРОБНЕЕ" ==========
 // ========== КНОПКА "ПОДРОБНЕЕ" (ИСПРАВЛЕНО) ==========
 function setupDescToggle() {
   document.querySelectorAll(".desc").forEach(desc => {
